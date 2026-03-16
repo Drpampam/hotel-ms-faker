@@ -1,0 +1,6 @@
+@hotelier_core_app.API_HostAddress = http://localhost:5227
+
+GET {{hotelier_core_app.API_HostAddress}}/user/
+Accept: application/json
+
+###

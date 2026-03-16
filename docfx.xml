@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<docfx>
+  <metadata>
+    <sources>
+      <source>
+        <files>src/hotelier-core-app.API/hotelier-core-app.API.csproj</files>
+        <exclude></exclude>
+      </source>
+      <source>
+        <files>src/hotelier-core-app.Core/hotelier-core-app.Core.csproj</files>
+        <exclude></exclude>
+      </source>
+      <source>
+        <files>src/hotelier-core-app.Migrations/hotelier-core-app.Migrations.csproj</files>
+        <exclude></exclude>
+      </source>
+      <source>
+        <files>src/hotelier-core-app.Model/hotelier-core-app.Model.csproj</files>
+        <exclude></exclude>
+      </source>
+      <source>
+        <files>src/hotelier-core-app.Repository/hotelier-core-app.Repository.csproj</files>
+        <exclude></exclude>
+      </source>
+      <source>
+        <files>src/hotelier-core-app.Service/hotelier-core-app.Service.csproj</files>
+        <exclude></exclude>
+      </source>
+    </sources>
+    <properties>
+      <TargetFramework>net8.0</TargetFramework>
+    </properties>
+  </metadata>
+  <build>
+    <content>
+      <files>docs/**.md</files>
+      <files>api/**.yml</files>
+      <files>README.md</files>
+    </content>
+    <resource>
+      <files>docs/images/**</files>
+    </resource>
+    <output>_site</output>
+    <template>default</template>
+    <globalMetadata>
+      <_appTitle>Hotelier Core App</_appTitle>
+      <_enableSearch>true</_enableSearch>
+    </globalMetadata>
+    <templateSettings>
+      <search>true</search>
+    </templateSettings>
+  </build>
+</docfx>

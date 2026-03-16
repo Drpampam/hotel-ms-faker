@@ -32,7 +32,7 @@ using System.Text.Json.Serialization;
 var builder = WebApplication.CreateBuilder(args);
 
 /// <summary>
-/// Entry point for the hotelier-core-app API application. Configures services, middleware, and application startup.
+/// Entry point for the hotel-ms API application. Configures services, middleware, and application startup.
 /// </summary>
 // Register TenantProvider for multi-tenancy
 builder.Services.AddScoped<ITenantProvider, TenantProvider>();
@@ -89,7 +89,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(option =>
 {
-    option.SwaggerDoc("v1", new OpenApiInfo { Title = "hotelier-core-app.API", Version = "v1" });
+    option.SwaggerDoc("v1", new OpenApiInfo { Title = "hotel-ms.API", Version = "v1" });
     option.AddSecurityDefinition("bearer", new OpenApiSecurityScheme
     {
         Type = SecuritySchemeType.Http,

@@ -2,19 +2,23 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <RootNamespace>hotelier_core_app.Service</RootNamespace>
+    <RootNamespace>hotel_ms.Model</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="AutoMapper" Version="13.0.1" />
-    <PackageReference Include="Stateless" Version="5.19.0" />
-    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.3.0" />
+    <Folder Include="Validators\" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\hotelier-core-app.Repository\hotelier-core-app.Repository.csproj" />
+    <PackageReference Include="Microsoft.Extensions.Identity.Stores" Version="8.0.11" />
+    <PackageReference Include="Stateless" Version="5.19.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\hotel-ms.Core\hotel-ms.Core.csproj" />
   </ItemGroup>
 
 </Project>
+

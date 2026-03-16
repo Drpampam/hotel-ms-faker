@@ -3,27 +3,27 @@
   <metadata>
     <sources>
       <source>
-        <files>src/hotelier-core-app.API/hotelier-core-app.API.csproj</files>
+        <files>src/hotel-ms.API/hotel-ms.API.csproj</files>
         <exclude></exclude>
       </source>
       <source>
-        <files>src/hotelier-core-app.Core/hotelier-core-app.Core.csproj</files>
+        <files>src/hotel-ms.Core/hotel-ms.Core.csproj</files>
         <exclude></exclude>
       </source>
       <source>
-        <files>src/hotelier-core-app.Migrations/hotelier-core-app.Migrations.csproj</files>
+        <files>src/hotel-ms.Migrations/hotel-ms.Migrations.csproj</files>
         <exclude></exclude>
       </source>
       <source>
-        <files>src/hotelier-core-app.Model/hotelier-core-app.Model.csproj</files>
+        <files>src/hotel-ms.Model/hotel-ms.Model.csproj</files>
         <exclude></exclude>
       </source>
       <source>
-        <files>src/hotelier-core-app.Repository/hotelier-core-app.Repository.csproj</files>
+        <files>src/hotel-ms.Repository/hotel-ms.Repository.csproj</files>
         <exclude></exclude>
       </source>
       <source>
-        <files>src/hotelier-core-app.Service/hotelier-core-app.Service.csproj</files>
+        <files>src/hotel-ms.Service/hotel-ms.Service.csproj</files>
         <exclude></exclude>
       </source>
     </sources>
@@ -43,7 +43,7 @@
     <output>_site</output>
     <template>default</template>
     <globalMetadata>
-      <_appTitle>Hotelier Core App</_appTitle>
+      <_appTitle>Hotel MS</_appTitle>
       <_enableSearch>true</_enableSearch>
     </globalMetadata>
     <templateSettings>

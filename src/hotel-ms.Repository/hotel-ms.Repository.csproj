@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <RootNamespace>hotelier_core_app.Domain</RootNamespace>
+    <RootNamespace>hotel_ms.Domain</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
@@ -13,7 +13,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\hotelier-core-app.Migrations\hotelier-core-app.Migrations.csproj" />
+    <ProjectReference Include="..\hotel-ms.Migrations\hotel-ms.Migrations.csproj" />
   </ItemGroup>
 
 </Project>
+

@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <RootNamespace>hotelier_core_app.Migrations</RootNamespace>
+    <RootNamespace>hotel_ms.Migrations</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
@@ -24,7 +24,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\hotelier-core-app.Model\hotelier-core-app.Model.csproj" />
+    <ProjectReference Include="..\hotel-ms.Model\hotel-ms.Model.csproj" />
   </ItemGroup>
 
 </Project>
+

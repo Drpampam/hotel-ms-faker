@@ -3,19 +3,19 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.12.35527.113
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hotelier-core-app.API", "src\hotelier-core-app.API\hotelier-core-app.API.csproj", "{82BB1AA7-ADA8-42AC-90EA-CAB423AD5392}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hotel-ms.API", "src\hotel-ms.API\hotel-ms.API.csproj", "{82BB1AA7-ADA8-42AC-90EA-CAB423AD5392}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hotelier-core-app.Test", "src\hotelier-core-app.Test\hotelier-core-app.Test.csproj", "{B1B1B1B1-B1B1-4B1B-B1B1-B1B1B1B1B1B1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hotel-ms.Test", "src\hotel-ms.Test\hotel-ms.Test.csproj", "{B1B1B1B1-B1B1-4B1B-B1B1-B1B1B1B1B1B1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hotelier-core-app.Repository", "src\hotelier-core-app.Repository\hotelier-core-app.Repository.csproj", "{AABBF212-8AB1-478E-8018-49C3E3A88E7E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hotel-ms.Repository", "src\hotel-ms.Repository\hotel-ms.Repository.csproj", "{AABBF212-8AB1-478E-8018-49C3E3A88E7E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hotelier-core-app.Core", "src\hotelier-core-app.Core\hotelier-core-app.Core.csproj", "{4C424A6B-D638-4BDF-A372-9AB6F2A3FAC2}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hotel-ms.Core", "src\hotel-ms.Core\hotel-ms.Core.csproj", "{4C424A6B-D638-4BDF-A372-9AB6F2A3FAC2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hotelier-core-app.Service", "src\hotelier-core-app.Service\hotelier-core-app.Service.csproj", "{E92294DA-6E77-43E0-BB9E-CB6DC0F1CD67}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hotel-ms.Service", "src\hotel-ms.Service\hotel-ms.Service.csproj", "{E92294DA-6E77-43E0-BB9E-CB6DC0F1CD67}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hotelier-core-app.Model", "src\hotelier-core-app.Model\hotelier-core-app.Model.csproj", "{D97909C5-B7E7-4FC0-92C7-8FC773370C27}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hotel-ms.Model", "src\hotel-ms.Model\hotel-ms.Model.csproj", "{D97909C5-B7E7-4FC0-92C7-8FC773370C27}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hotelier-core-app.Migrations", "src\hotelier-core-app.Migrations\hotelier-core-app.Migrations.csproj", "{562E8305-1516-468F-8A3A-48FF781F39B7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hotel-ms.Migrations", "src\hotel-ms.Migrations\hotel-ms.Migrations.csproj", "{562E8305-1516-468F-8A3A-48FF781F39B7}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{F3F4D172-FE0B-4FD8-B5AD-B7B388564DA6}"
 	ProjectSection(SolutionItems) = preProject
@@ -62,3 +62,4 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 EndGlobal
+

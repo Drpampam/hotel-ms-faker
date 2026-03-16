@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace hotelier_core_app.Migrations
 {
     /// <summary>
-    /// Entity Framework Core database context for the hotelier-core-app, supporting multi-tenancy.
+    /// Entity Framework Core database context for hotel-ms, supporting multi-tenancy.
     /// </summary>
     public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, long, ApplicationUserClaim, ApplicationUserRole, ApplicationUserLogin, IdentityRoleClaim<long>, ApplicationUserToken>
     {

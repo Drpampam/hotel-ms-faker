@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
   <TargetFramework>net8.0</TargetFramework>
     <IsPackable>false</IsPackable>
@@ -15,10 +15,11 @@
     <PackageReference Include="NSubstitute" Version="5.0.0" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\hotelier-core-app.Service\hotelier-core-app.Service.csproj" />
-    <ProjectReference Include="..\hotelier-core-app.Repository\hotelier-core-app.Repository.csproj" />
-    <ProjectReference Include="..\hotelier-core-app.Model\hotelier-core-app.Model.csproj" />
-    <ProjectReference Include="..\hotelier-core-app.Core\hotelier-core-app.Core.csproj" />
-    <ProjectReference Include="..\hotelier-core-app.API\hotelier-core-app.API.csproj" />
+    <ProjectReference Include="..\hotel-ms.Service\hotel-ms.Service.csproj" />
+    <ProjectReference Include="..\hotel-ms.Repository\hotel-ms.Repository.csproj" />
+    <ProjectReference Include="..\hotel-ms.Model\hotel-ms.Model.csproj" />
+    <ProjectReference Include="..\hotel-ms.Core\hotel-ms.Core.csproj" />
+    <ProjectReference Include="..\hotel-ms.API\hotel-ms.API.csproj" />
   </ItemGroup>
 </Project>
+

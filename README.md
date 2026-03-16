@@ -158,7 +158,7 @@ Prerequisites:
 - Docker (optional)
 
 Configure:
-Edit: `src/hotelier-core-app.API/appsettings.json`
+Edit: `src/hotel-ms.API/appsettings.json`
 ```
 "ConnectionStrings": {
   "DbConnectionString": "Host=localhost;Port=5432;Database=Hotelier.Core;Username=postgres;Password=YourPassword;Include Error Detail=true"
@@ -168,7 +168,7 @@ Run:
 ```
 dotnet restore
 dotnet build
-dotnet run --project src/hotelier-core-app.API
+dotnet run --project src/hotel-ms.API
 ```
 Access:
 - Swagger: `/swagger`
@@ -312,7 +312,7 @@ For partnership, integration, or investment inquiries: Reach out to project main
 ## Quick Start TL;DR
 ```
 # Run locally
-dotnet run --project src/hotelier-core-app.API
+ dotnet run --project src/hotel-ms.API
 # Login then call authorized endpoints
 curl -X POST https://localhost:44366/api/v1/user/login -d '{"email":"admin@hotelier.io","password":"P@ssw0rd!"}' -H "Content-Type: application/json" -i
 ```

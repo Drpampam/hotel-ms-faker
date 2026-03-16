@@ -4,7 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>hotelier_core_app.API</RootNamespace>
+    <RootNamespace>hotel_ms.API</RootNamespace>
     <UserSecretsId>9686c8e4-2a6e-4078-bf88-cabdfa51dc2f</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerfileContext>..\..</DockerfileContext>
@@ -21,7 +21,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\hotelier-core-app.Service\hotelier-core-app.Service.csproj" />
+    <ProjectReference Include="..\hotel-ms.Service\hotel-ms.Service.csproj" />
   </ItemGroup>
 
 </Project>
+

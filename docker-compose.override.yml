@@ -1,9 +1,9 @@
 services:
-  hotelier-core-app:
-    image: hotelier-core-app
+  hotel-ms:
+    image: hotel-ms
     build:
       context: .
-      dockerfile: ./src/hotelier-core-app.API/Dockerfile
+      dockerfile: ./src/hotel-ms.API/Dockerfile
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DbConnectionString=Host=host.docker.internal;Port=5432;Database=Hotelier.Core;Username=postgres;Password=password123;Include Error Detail=true

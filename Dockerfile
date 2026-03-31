@@ -6,7 +6,6 @@ WORKDIR /src
 COPY hotel-ms.sln .
 COPY src/hotel-ms.API/hotel-ms.API.csproj           src/hotel-ms.API/
 COPY src/hotel-ms.Core/hotel-ms.Core.csproj         src/hotel-ms.Core/
-COPY src/hotel-ms.Domain/hotel-ms.Domain.csproj     src/hotel-ms.Domain/
 COPY src/hotel-ms.Migrations/hotel-ms.Migrations.csproj src/hotel-ms.Migrations/
 COPY src/hotel-ms.Model/hotel-ms.Model.csproj       src/hotel-ms.Model/
 COPY src/hotel-ms.Repository/hotel-ms.Repository.csproj src/hotel-ms.Repository/

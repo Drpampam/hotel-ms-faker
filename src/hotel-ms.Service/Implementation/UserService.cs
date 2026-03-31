@@ -442,9 +442,34 @@ namespace hotelier_core_app.Service.Implementation
                 ResponseMessages.CantVerifyRefreshToken, ResponseStatusCode.CantVerifyRefreshToken), string.Empty);
         }
 
-        public Task<BaseResponse> UpdateUserDetail(EditUserDetailRequestDTO model, AuditLog auditLog)
+        public async Task<BaseResponse> UpdateUserDetail(EditUserDetailRequestDTO model, AuditLog auditLog)
         {
-            throw new NotImplementedException();
+            if (string.IsNullOrEmpty(model.Email))
+                return BaseResponse.Failure(ResponseMessages.UserDoesNotExist, ResponseStatusCode.UserDoesNotExist);
+
+            var user = await _userManager.FindByEmailAsync(model.Email);
+            if (user == null)
+                return BaseResponse.Failure(ResponseMessages.UserDoesNotExist, ResponseStatusCode.UserDoesNotExist);
+
+            if (!user.IsActive)
+                return BaseResponse.Failure(ResponseMessages.UserInactive, ResponseStatusCode.UserInactive);
+
+            user.FullName = model.FullName ?? user.FullName;
+            user.LastModifiedDate = DateTime.UtcNow;
+            user.ModifiedBy = auditLog.PerformedBy;
+            await _userManager.UpdateAsync(user);
+
+            if (model.Roles != null && model.Roles.Any())
+            {
+                var currentRoles = await _userManager.GetRolesAsync(user);
+                await _userManager.RemoveFromRolesAsync(user, currentRoles);
+                await _userManager.AddToRolesAsync(user, model.Roles);
+            }
+
+            _auditLogCommandRepository.Add(auditLog);
+            await _auditLogCommandRepository.SaveAsync();
+
+            return BaseResponse.Success(ResponseMessages.UpdateSuccessful, ResponseStatusCode.UpdateSuccessful);
         }
 
         public async Task<BaseResponse> UpdateUserName(EditUserNameRequestDTO model, AuditLog auditLog)

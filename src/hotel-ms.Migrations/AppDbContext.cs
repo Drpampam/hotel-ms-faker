@@ -8,11 +8,15 @@ namespace hotelier_core_app.Migrations
     /// <summary>
     /// Entity Framework Core database context for hotel-ms, supporting multi-tenancy.
     /// </summary>
-    public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, long, ApplicationUserClaim, ApplicationUserRole, ApplicationUserLogin, IdentityRoleClaim<long>, ApplicationUserToken>
+    public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, long, ApplicationUserClaim, ApplicationUserRole, ApplicationUserLogin, IdentityRoleClaim<long>, ApplicationUserToken>, IUnitOfWork
     {
         private ITenantProvider _tenantProvider;
 
         public DbSet<Address> Addresses { get; set; }
+        public DbSet<GuestProfile> GuestProfiles { get; set; }
+        public DbSet<HousekeepingTask> HousekeepingTasks { get; set; }
+        public DbSet<Invoice> Invoices { get; set; }
+        public DbSet<InvoiceLineItem> InvoiceLineItems { get; set; }
         public DbSet<ApplicationUserPolicyGroup> UserPolicyGroups { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<Discount> Discounts { get; set; }

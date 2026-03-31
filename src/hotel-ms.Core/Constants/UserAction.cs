@@ -31,5 +31,45 @@
 
         // Property Management
         public const string AddProperty = "Add Property";
+        public const string UpdateProperty = "Update Property";
+
+        // Room Management
+        public const string AddRoom = "Add Room";
+        public const string UpdateRoom = "Update Room";
+        public const string DeleteRoom = "Delete Room";
+
+        // Payment Management
+        public const string CreatePayment = "Create Payment";
+
+        // Service Request Management
+        public const string CreateServiceRequest = "Create Service Request";
+        public const string UpdateServiceRequest = "Update Service Request";
+
+        // Discount Management
+        public const string CreateDiscount = "Create Discount";
+        public const string UpdateDiscount = "Update Discount";
+        public const string DeleteDiscount = "Delete Discount";
+
+        // Reservation Management
+        public const string CreateReservation = "Create Reservation";
+        public const string UpdateReservation = "Update Reservation";
+        public const string CancelReservation = "Cancel Reservation";
+        public const string CheckIn = "Check In";
+        public const string CheckOut = "Check Out";
+
+        // Guest Management
+        public const string CreateGuestProfile = "Create Guest Profile";
+        public const string UpdateGuestProfile = "Update Guest Profile";
+
+        // Housekeeping
+        public const string CreateHousekeepingTask = "Create Housekeeping Task";
+        public const string UpdateHousekeepingTask = "Update Housekeeping Task";
+
+        // Billing
+        public const string GenerateInvoice = "Generate Invoice";
+        public const string VoidInvoice = "Void Invoice";
+
+        // Loyalty
+        public const string RedeemLoyaltyPoints = "Redeem Loyalty Points";
     }
 }

@@ -15,14 +15,18 @@ namespace hotelier_core_app.Test.Service.Implementation
     {
         private readonly IDBCommandRepository<Room> _roomCommandRepo = Substitute.For<IDBCommandRepository<Room>>();
         private readonly IDBQueryRepository<Room> _roomQueryRepo = Substitute.For<IDBQueryRepository<Room>>();
+        private readonly IDBQueryRepository<Property> _propertyQueryRepo = Substitute.For<IDBQueryRepository<Property>>();
         private readonly IDBCommandRepository<AuditLog> _auditLogCommandRepo = Substitute.For<IDBCommandRepository<AuditLog>>();
         private readonly IMapper _mapper = Substitute.For<IMapper>();
+        private readonly hotelier_core_app.Core.Helpers.Interface.IUtility _utility = Substitute.For<hotelier_core_app.Core.Helpers.Interface.IUtility>();
 
         private RoomService CreateService() => new(
             _roomCommandRepo,
             _roomQueryRepo,
+            _propertyQueryRepo,
             _auditLogCommandRepo,
-            _mapper);
+            _mapper,
+            _utility);
 
         [Fact]
         public async Task GetRoomStateAsync_ShouldReturnFailure_WhenRoomNotFound()

@@ -15,14 +15,18 @@ namespace hotelier_core_app.Test.Service.Implementation
     {
         private readonly IDBCommandRepository<Payment> _paymentCommandRepo = Substitute.For<IDBCommandRepository<Payment>>();
         private readonly IDBQueryRepository<Payment> _paymentQueryRepo = Substitute.For<IDBQueryRepository<Payment>>();
+        private readonly IDBQueryRepository<Reservation> _reservationQueryRepo = Substitute.For<IDBQueryRepository<Reservation>>();
         private readonly IDBCommandRepository<AuditLog> _auditLogCommandRepo = Substitute.For<IDBCommandRepository<AuditLog>>();
         private readonly IMapper _mapper = Substitute.For<IMapper>();
+        private readonly hotelier_core_app.Core.Helpers.Interface.IUtility _utility = Substitute.For<hotelier_core_app.Core.Helpers.Interface.IUtility>();
 
         private PaymentService CreateService() => new(
             _paymentCommandRepo,
             _paymentQueryRepo,
+            _reservationQueryRepo,
             _auditLogCommandRepo,
-            _mapper);
+            _mapper,
+            _utility);
 
         [Fact]
         public async Task GetPaymentStateAsync_ShouldReturnFailure_WhenPaymentNotFound()

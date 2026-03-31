@@ -77,5 +77,52 @@
         public const string UsersFetchFailed = "054";
         public const string UsersRetrieved = "055";
         public const string ModulesRetrieved = "056";
+
+        // Room Management
+        public const string RoomNotFound = "057";
+        public const string RoomCreated = "058";
+        public const string RoomUpdated = "059";
+        public const string RoomDeleted = "060";
+
+        // Payment Management
+        public const string PaymentNotFound = "061";
+        public const string PaymentCreated = "062";
+
+        // Service Request Management
+        public const string ServiceRequestNotFound = "063";
+        public const string ServiceRequestCreated = "064";
+
+        // Discount Management
+        public const string DiscountNotFound = "065";
+        public const string DiscountCreated = "066";
+        public const string DiscountUpdated = "067";
+        public const string DiscountDeleted = "068";
+        public const string DiscountExists = "069";
+
+        // Reservation Management
+        public const string ReservationNotFound = "070";
+        public const string ReservationCreated = "071";
+        public const string ReservationUpdated = "072";
+        public const string ReservationCancelled = "073";
+        public const string CheckedIn = "074";
+        public const string CheckedOut = "075";
+        public const string RoomNotAvailable = "076";
+
+        // Guest Management
+        public const string GuestProfileNotFound = "077";
+        public const string GuestProfileCreated = "078";
+        public const string GuestProfileUpdated = "079";
+        public const string GuestProfileAlreadyExists = "080";
+
+        // Billing
+        public const string InvoiceNotFound = "081";
+        public const string InvoiceAlreadyPaid = "082";
+        public const string InvoiceAlreadyVoided = "083";
+
+        // Housekeeping
+        public const string HousekeepingTaskNotFound = "084";
+
+        // Loyalty
+        public const string LoyaltyRecordNotFound = "085";
     }
 }

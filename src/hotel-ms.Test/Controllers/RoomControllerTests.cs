@@ -3,6 +3,7 @@ using hotelier_core_app.Core.Constants;
 using hotelier_core_app.Core.States;
 using hotelier_core_app.Model.DTOs.Response;
 using hotelier_core_app.Service.Interface;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
 using Xunit;
@@ -12,11 +13,13 @@ using System.Threading.Tasks;
 public class RoomControllerTests
 {
     private readonly IRoomService _roomService = Substitute.For<IRoomService>();
+    private readonly ITokenService _tokenService = Substitute.For<ITokenService>();
+    private readonly IHttpContextAccessor _accessor = Substitute.For<IHttpContextAccessor>();
     private readonly RoomController _controller;
 
     public RoomControllerTests()
     {
-        _controller = new RoomController(_roomService);
+        _controller = new RoomController(_roomService, _tokenService, _accessor);
     }
 
     [Fact]

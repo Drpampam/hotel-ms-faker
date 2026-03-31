@@ -1,5 +1,9 @@
-using hotelier_core_app.Core.States;
+using hotelier_core_app.API.Helpers;
 using hotelier_core_app.Core.Constants;
+using hotelier_core_app.Core.States;
+using hotelier_core_app.Model.DTOs.Request;
+using hotelier_core_app.Model.DTOs.Response;
+using hotelier_core_app.Model.Entities;
 using hotelier_core_app.Service.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,34 +14,65 @@ namespace hotelier_core_app.API.Controllers
     [Route("api/v1/service-requests")]
     [ApiController]
     [Authorize]
-    /// <summary>
-    /// Controller for managing service request operations and state transitions.
-    /// </summary>
     public class ServiceRequestController : ControllerBase
     {
         private readonly IServiceRequestService _serviceRequestService;
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ServiceRequestController"/> class.
-        /// </summary>
-        /// <param name="serviceRequestService">Service for service request operations.</param>
-        public ServiceRequestController(IServiceRequestService serviceRequestService)
+        private readonly ITokenService _tokenHelper;
+        private readonly IHttpContextAccessor _accessor;
+
+        public ServiceRequestController(IServiceRequestService serviceRequestService, ITokenService tokenHelper, IHttpContextAccessor accessor)
         {
             _serviceRequestService = serviceRequestService;
+            _tokenHelper = tokenHelper;
+            _accessor = accessor;
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Guest,Developer")]
+        [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<ServiceRequestResponseDTO>))]
+        [ProducesResponseType((int)HttpStatusCode.BadRequest, Type = typeof(ValidationResultModel))]
+        public async Task<IActionResult> CreateServiceRequest(CreateServiceRequestDTO request)
+        {
+            var auditLog = new AuditLog
+            {
+                Action = UserAction.CreateServiceRequest,
+                DatePerformed = DateTime.UtcNow,
+                PerformedBy = _tokenHelper.GetUserFullName(Request),
+                IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",
+                PerformerEmail = _tokenHelper.GetUserEmail(Request),
+                PerformedAgainst = request.ReservationId.ToString(),
+                MacAddress = _tokenHelper.GetMacAddress(Request)
+            };
+            var result = await _serviceRequestService.CreateServiceRequestAsync(request, auditLog);
+            return Ok(result);
+        }
+
+        [HttpGet("{id}")]
+        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Developer")]
+        [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<ServiceRequestResponseDTO>))]
+        public async Task<IActionResult> GetServiceRequest(long id)
+        {
+            var result = await _serviceRequestService.GetServiceRequestByIdAsync(id);
+            return Ok(result);
+        }
+
+        [HttpGet]
+        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Developer")]
+        [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(PageBaseResponse<List<ServiceRequestResponseDTO>>))]
+        public async Task<IActionResult> GetServiceRequests([FromQuery] GetServiceRequestsInputDTO input)
+        {
+            var result = await _serviceRequestService.GetServiceRequestsAsync(input);
+            return Ok(result);
         }
 
         /// <summary>
         /// Change the state of a service request
         /// </summary>
         [HttpPatch("{id}/state")]
+        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Developer")]
         [ProducesResponseType((int)HttpStatusCode.OK)]
         [ProducesResponseType((int)HttpStatusCode.BadRequest)]
         [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
-        /// <summary>
-        /// Changes the state of a service request.
-        /// </summary>
-        /// <param name="id">The ID of the service request.</param>
-        /// <param name="trigger">The trigger to change the service request state.</param>
-        /// <returns>The result of the state change operation.</returns>
         public async Task<IActionResult> ChangeServiceRequestState(long id, [FromBody] ServiceRequestTrigger trigger)
         {
             var result = await _serviceRequestService.ChangeServiceRequestStateAsync(id, trigger);
@@ -50,13 +85,9 @@ namespace hotelier_core_app.API.Controllers
         /// Get the current state of a service request
         /// </summary>
         [HttpGet("{id}/state")]
+        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Developer")]
         [ProducesResponseType((int)HttpStatusCode.OK)]
         [ProducesResponseType((int)HttpStatusCode.NotFound)]
-        /// <summary>
-        /// Gets the current state of a service request.
-        /// </summary>
-        /// <param name="id">The ID of the service request.</param>
-        /// <returns>The current state of the service request.</returns>
         public async Task<IActionResult> GetServiceRequestState(long id)
         {
             var state = await _serviceRequestService.GetServiceRequestStateAsync(id);
@@ -73,13 +104,9 @@ namespace hotelier_core_app.API.Controllers
         /// Get available triggers for the current state of a service request
         /// </summary>
         [HttpGet("{id}/triggers")]
+        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Developer")]
         [ProducesResponseType((int)HttpStatusCode.OK)]
         [ProducesResponseType((int)HttpStatusCode.NotFound)]
-        /// <summary>
-        /// Gets available triggers for the current state of a service request.
-        /// </summary>
-        /// <param name="id">The ID of the service request.</param>
-        /// <returns>The available triggers for the service request.</returns>
         public async Task<IActionResult> GetAvailableServiceRequestTriggers(long id)
         {
             var triggers = await _serviceRequestService.GetAvailableTriggersAsync(id);

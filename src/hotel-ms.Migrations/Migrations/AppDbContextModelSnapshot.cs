@@ -41,7 +41,7 @@ namespace hotelier_core_app.Migrations.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("RoleClaims");
+                    b.ToTable("RoleClaims", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.Address", b =>
@@ -53,12 +53,10 @@ namespace hotelier_core_app.Migrations.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<string>("City")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("Country")
-                        .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)");
 
@@ -69,23 +67,20 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("numeric");
 
                     b.Property<string>("State")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("Street")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("ZipCode")
-                        .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
                     b.HasKey("Id");
 
-                    b.ToTable("Address");
+                    b.ToTable("Address", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.ApplicationRole", b =>
@@ -100,7 +95,6 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -130,7 +124,7 @@ namespace hotelier_core_app.Migrations.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.ToTable("Role");
+                    b.ToTable("Role", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.ApplicationUser", b =>
@@ -148,7 +142,6 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -162,7 +155,6 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<string>("FullName")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -218,7 +210,6 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Status")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -235,7 +226,7 @@ namespace hotelier_core_app.Migrations.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.ToTable("User");
+                    b.ToTable("User", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.ApplicationUserClaim", b =>
@@ -257,7 +248,7 @@ namespace hotelier_core_app.Migrations.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("UserClaim");
+                    b.ToTable("UserClaim", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.ApplicationUserLogin", b =>
@@ -284,7 +275,7 @@ namespace hotelier_core_app.Migrations.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("UserLogin");
+                    b.ToTable("UserLogin", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.ApplicationUserPolicyGroup", b =>
@@ -296,7 +287,6 @@ namespace hotelier_core_app.Migrations.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -316,6 +306,9 @@ namespace hotelier_core_app.Migrations.Migrations
                     b.Property<long>("PolicyGroupId")
                         .HasColumnType("bigint");
 
+                    b.Property<long>("TenantId")
+                        .HasColumnType("bigint");
+
                     b.Property<long>("UserId")
                         .HasColumnType("bigint");
 
@@ -323,9 +316,11 @@ namespace hotelier_core_app.Migrations.Migrations
 
                     b.HasIndex("PolicyGroupId");
 
+                    b.HasIndex("TenantId");
+
                     b.HasIndex("UserId");
 
-                    b.ToTable("UserPolicyGroup");
+                    b.ToTable("UserPolicyGroup", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.ApplicationUserRole", b =>
@@ -336,14 +331,19 @@ namespace hotelier_core_app.Migrations.Migrations
                     b.Property<long>("RoleId")
                         .HasColumnType("bigint");
 
+                    b.Property<long>("TenantId")
+                        .HasColumnType("bigint");
+
                     b.HasKey("UserId", "RoleId");
 
                     b.HasIndex("RoleId");
 
+                    b.HasIndex("TenantId");
+
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("UserRole");
+                    b.ToTable("UserRole", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.ApplicationUserToken", b =>
@@ -370,7 +370,7 @@ namespace hotelier_core_app.Migrations.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("UserToken");
+                    b.ToTable("UserToken", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.AuditLog", b =>
@@ -382,7 +382,6 @@ namespace hotelier_core_app.Migrations.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Action")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -416,18 +415,16 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("character varying(255)");
 
                     b.Property<string>("PerformedBy")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
                     b.Property<string>("PerformerEmail")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
                     b.HasKey("Id");
 
-                    b.ToTable("AuditLog");
+                    b.ToTable("AuditLog", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.Discount", b =>
@@ -439,7 +436,6 @@ namespace hotelier_core_app.Migrations.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -447,7 +443,6 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
-                        .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
@@ -477,7 +472,6 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("character varying(200)");
 
                     b.Property<string>("Name")
-                        .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
@@ -504,7 +498,244 @@ namespace hotelier_core_app.Migrations.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.ToTable("Discount");
+                    b.ToTable("Discount", "public");
+                });
+
+            modelBuilder.Entity("hotelier_core_app.Model.Entities.GuestProfile", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("CreationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DateOfBirth")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModifiedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("LoyaltyPoints")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("LoyaltyTier")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Nationality")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("PassportNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("PreferredRoomType")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("SpecialRequests")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<long?>("TenantId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("GuestProfile", "public");
+                });
+
+            modelBuilder.Entity("hotelier_core_app.Model.Entities.HousekeepingTask", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<long?>("AssignedToUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("CreationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModifiedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Priority")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<long>("RoomId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("ScheduledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("State")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TaskType")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<long?>("TenantId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedToUserId");
+
+                    b.HasIndex("RoomId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("HousekeepingTask", "public");
+                });
+
+            modelBuilder.Entity("hotelier_core_app.Model.Entities.Invoice", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("CreationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("numeric");
+
+                    b.Property<DateTime>("DueDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("GuestId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("InvoiceNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("IssueDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("LastModifiedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<long>("ReservationId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("SubTotal")
+                        .HasColumnType("numeric");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasColumnType("numeric");
+
+                    b.Property<long?>("TenantId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("numeric");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GuestId");
+
+                    b.HasIndex("ReservationId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("Invoice", "public");
+                });
+
+            modelBuilder.Entity("hotelier_core_app.Model.Entities.InvoiceLineItem", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<long>("InvoiceId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("numeric");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.ToTable("InvoiceLineItem", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.LoyaltyProgram", b =>
@@ -516,7 +747,6 @@ namespace hotelier_core_app.Migrations.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -546,7 +776,7 @@ namespace hotelier_core_app.Migrations.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("LoyaltyProgram");
+                    b.ToTable("LoyaltyProgram", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.Module", b =>
@@ -558,12 +788,15 @@ namespace hotelier_core_app.Migrations.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
                     b.Property<DateTime>("CreationDate")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
@@ -578,11 +811,19 @@ namespace hotelier_core_app.Migrations.Migrations
                     b.Property<long>("ModuleGroupId")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("Name")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("Url")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ModuleGroupId");
 
-                    b.ToTable("Module");
+                    b.ToTable("Module", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.ModuleGroup", b =>
@@ -594,7 +835,6 @@ namespace hotelier_core_app.Migrations.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -602,7 +842,6 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
-                        .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
@@ -613,12 +852,10 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ModifiedBy")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
                     b.Property<string>("Name")
-                        .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
@@ -628,7 +865,7 @@ namespace hotelier_core_app.Migrations.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ModuleGroup");
+                    b.ToTable("ModuleGroup", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.Payment", b =>
@@ -649,15 +886,16 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("PaymentMethod")
-                        .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<int>("PaymentState")
+                        .HasColumnType("integer");
 
                     b.Property<long>("ReservationId")
                         .HasColumnType("bigint");
 
                     b.Property<string>("TransactionId")
-                        .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
@@ -665,7 +903,7 @@ namespace hotelier_core_app.Migrations.Migrations
 
                     b.HasIndex("ReservationId");
 
-                    b.ToTable("Payment");
+                    b.ToTable("Payment", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.Permission", b =>
@@ -677,7 +915,6 @@ namespace hotelier_core_app.Migrations.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -685,7 +922,6 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
-                        .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
@@ -700,13 +936,12 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("character varying(200)");
 
                     b.Property<string>("Name")
-                        .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
                     b.HasKey("Id");
 
-                    b.ToTable("Permission");
+                    b.ToTable("Permission", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.PolicyGroup", b =>
@@ -718,7 +953,6 @@ namespace hotelier_core_app.Migrations.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -726,7 +960,6 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
-                        .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
@@ -741,7 +974,6 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("character varying(200)");
 
                     b.Property<string>("Name")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -752,7 +984,7 @@ namespace hotelier_core_app.Migrations.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.ToTable("PolicyGroup");
+                    b.ToTable("PolicyGroup", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.PolicyModulePermission", b =>
@@ -764,7 +996,6 @@ namespace hotelier_core_app.Migrations.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -798,7 +1029,7 @@ namespace hotelier_core_app.Migrations.Migrations
 
                     b.HasIndex("PolicyGroupId");
 
-                    b.ToTable("PolicyModulePermission");
+                    b.ToTable("PolicyModulePermission", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.Property", b =>
@@ -813,7 +1044,6 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -821,7 +1051,6 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
-                        .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
@@ -840,7 +1069,6 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("character varying(200)");
 
                     b.Property<string>("Name")
-                        .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
@@ -853,7 +1081,7 @@ namespace hotelier_core_app.Migrations.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.ToTable("Property");
+                    b.ToTable("Property", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.Reservation", b =>
@@ -871,7 +1099,6 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -897,10 +1124,12 @@ namespace hotelier_core_app.Migrations.Migrations
                     b.Property<long>("RoomId")
                         .HasColumnType("bigint");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                    b.Property<string>("SpecialRequests")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("TotalPrice")
                         .HasColumnType("numeric");
@@ -913,7 +1142,35 @@ namespace hotelier_core_app.Migrations.Migrations
 
                     b.HasIndex("RoomId");
 
-                    b.ToTable("Reservation");
+                    b.ToTable("Reservation", "public");
+                });
+
+            modelBuilder.Entity("hotelier_core_app.Model.Entities.RolePolicyGroup", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("PolicyGroupId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("RoleId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("TenantId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PolicyGroupId");
+
+                    b.HasIndex("RoleId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("RolePolicyGroup", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.Room", b =>
@@ -928,7 +1185,6 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("integer");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -949,7 +1205,6 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("character varying(200)");
 
                     b.Property<string>("Number")
-                        .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
@@ -959,8 +1214,11 @@ namespace hotelier_core_app.Migrations.Migrations
                     b.Property<long>("PropertyId")
                         .HasColumnType("bigint");
 
+                    b.Property<int>("RoomState")
+                        .HasMaxLength(50)
+                        .HasColumnType("integer");
+
                     b.Property<string>("Type")
-                        .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
@@ -968,7 +1226,7 @@ namespace hotelier_core_app.Migrations.Migrations
 
                     b.HasIndex("PropertyId");
 
-                    b.ToTable("Room");
+                    b.ToTable("Room", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.ServiceRequest", b =>
@@ -983,7 +1241,6 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -1000,16 +1257,22 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<long>("ReservationId")
                         .HasColumnType("bigint");
 
+                    b.Property<int>("ServiceRequestState")
+                        .HasMaxLength(50)
+                        .HasColumnType("integer");
+
                     b.Property<string>("ServiceType")
-                        .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)");
 
                     b.Property<string>("Status")
-                        .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
@@ -1017,7 +1280,7 @@ namespace hotelier_core_app.Migrations.Migrations
 
                     b.HasIndex("ReservationId");
 
-                    b.ToTable("ServiceRequest");
+                    b.ToTable("ServiceRequest", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.SubscriptionPlan", b =>
@@ -1029,7 +1292,6 @@ namespace hotelier_core_app.Migrations.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -1037,7 +1299,6 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
-                        .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
@@ -1055,7 +1316,6 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("character varying(200)");
 
                     b.Property<string>("Name")
-                        .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
@@ -1066,7 +1326,7 @@ namespace hotelier_core_app.Migrations.Migrations
 
                     b.HasIndex("DiscountId");
 
-                    b.ToTable("SubscriptionPlan");
+                    b.ToTable("SubscriptionPlan", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.Tenant", b =>
@@ -1078,7 +1338,6 @@ namespace hotelier_core_app.Migrations.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<string>("CreatedBy")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -1086,7 +1345,6 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
-                        .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
@@ -1097,7 +1355,6 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Logo")
-                        .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
@@ -1106,7 +1363,6 @@ namespace hotelier_core_app.Migrations.Migrations
                         .HasColumnType("character varying(200)");
 
                     b.Property<string>("Name")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -1126,7 +1382,7 @@ namespace hotelier_core_app.Migrations.Migrations
 
                     b.HasIndex("SubscriptionPlanId");
 
-                    b.ToTable("Tenant");
+                    b.ToTable("Tenant", "public");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.ApplicationRole", b =>
@@ -1155,6 +1411,12 @@ namespace hotelier_core_app.Migrations.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("hotelier_core_app.Model.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("hotelier_core_app.Model.Entities.ApplicationUser", "User")
                         .WithMany("UserPolicyGroups")
                         .HasForeignKey("UserId")
@@ -1162,6 +1424,8 @@ namespace hotelier_core_app.Migrations.Migrations
                         .IsRequired();
 
                     b.Navigation("PolicyGroup");
+
+                    b.Navigation("Tenant");
 
                     b.Navigation("User");
                 });
@@ -1174,6 +1438,12 @@ namespace hotelier_core_app.Migrations.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("hotelier_core_app.Model.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("hotelier_core_app.Model.Entities.ApplicationUser", "User")
                         .WithOne("UserRole")
                         .HasForeignKey("hotelier_core_app.Model.Entities.ApplicationUserRole", "UserId")
@@ -1181,6 +1451,8 @@ namespace hotelier_core_app.Migrations.Migrations
                         .IsRequired();
 
                     b.Navigation("Role");
+
+                    b.Navigation("Tenant");
 
                     b.Navigation("User");
                 });
@@ -1204,6 +1476,82 @@ namespace hotelier_core_app.Migrations.Migrations
                     b.Navigation("Room");
 
                     b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("hotelier_core_app.Model.Entities.GuestProfile", b =>
+                {
+                    b.HasOne("hotelier_core_app.Model.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId");
+
+                    b.HasOne("hotelier_core_app.Model.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("hotelier_core_app.Model.Entities.HousekeepingTask", b =>
+                {
+                    b.HasOne("hotelier_core_app.Model.Entities.ApplicationUser", "AssignedTo")
+                        .WithMany()
+                        .HasForeignKey("AssignedToUserId");
+
+                    b.HasOne("hotelier_core_app.Model.Entities.Room", "Room")
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("hotelier_core_app.Model.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId");
+
+                    b.Navigation("AssignedTo");
+
+                    b.Navigation("Room");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("hotelier_core_app.Model.Entities.Invoice", b =>
+                {
+                    b.HasOne("hotelier_core_app.Model.Entities.ApplicationUser", "Guest")
+                        .WithMany()
+                        .HasForeignKey("GuestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("hotelier_core_app.Model.Entities.Reservation", "Reservation")
+                        .WithMany()
+                        .HasForeignKey("ReservationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("hotelier_core_app.Model.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId");
+
+                    b.Navigation("Guest");
+
+                    b.Navigation("Reservation");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("hotelier_core_app.Model.Entities.InvoiceLineItem", b =>
+                {
+                    b.HasOne("hotelier_core_app.Model.Entities.Invoice", "Invoice")
+                        .WithMany("LineItems")
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Invoice");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.LoyaltyProgram", b =>
@@ -1321,6 +1669,33 @@ namespace hotelier_core_app.Migrations.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("hotelier_core_app.Model.Entities.RolePolicyGroup", b =>
+                {
+                    b.HasOne("hotelier_core_app.Model.Entities.PolicyGroup", "PolicyGroup")
+                        .WithMany("RolePolicyGroups")
+                        .HasForeignKey("PolicyGroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("hotelier_core_app.Model.Entities.ApplicationRole", "Role")
+                        .WithMany("RolePolicyGroups")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("hotelier_core_app.Model.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PolicyGroup");
+
+                    b.Navigation("Role");
+
+                    b.Navigation("Tenant");
+                });
+
             modelBuilder.Entity("hotelier_core_app.Model.Entities.Room", b =>
                 {
                     b.HasOne("hotelier_core_app.Model.Entities.Property", "Property")
@@ -1361,12 +1736,16 @@ namespace hotelier_core_app.Migrations.Migrations
                     b.Navigation("SubscriptionPlan");
                 });
 
+            modelBuilder.Entity("hotelier_core_app.Model.Entities.ApplicationRole", b =>
+                {
+                    b.Navigation("RolePolicyGroups");
+                });
+
             modelBuilder.Entity("hotelier_core_app.Model.Entities.ApplicationUser", b =>
                 {
                     b.Navigation("UserPolicyGroups");
 
-                    b.Navigation("UserRole")
-                        .IsRequired();
+                    b.Navigation("UserRole");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.Discount", b =>
@@ -1374,6 +1753,11 @@ namespace hotelier_core_app.Migrations.Migrations
                     b.Navigation("Reservations");
 
                     b.Navigation("SubscriptionPlans");
+                });
+
+            modelBuilder.Entity("hotelier_core_app.Model.Entities.Invoice", b =>
+                {
+                    b.Navigation("LineItems");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.ModuleGroup", b =>
@@ -1384,6 +1768,8 @@ namespace hotelier_core_app.Migrations.Migrations
             modelBuilder.Entity("hotelier_core_app.Model.Entities.PolicyGroup", b =>
                 {
                     b.Navigation("ModulePermissions");
+
+                    b.Navigation("RolePolicyGroups");
 
                     b.Navigation("UserPolicyGroups");
                 });

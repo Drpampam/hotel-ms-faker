@@ -5,6 +5,8 @@ using hotelier_core_app.Domain.Commands.Interface;
 using hotelier_core_app.Domain.Queries.Interface;
 using hotelier_core_app.Model.Entities;
 using hotelier_core_app.Service.Implementation;
+using hotelier_core_app.Service.Interface;
+using Microsoft.AspNetCore.Identity;
 using NSubstitute;
 using System.Threading.Tasks;
 using Xunit;
@@ -15,14 +17,23 @@ namespace hotelier_core_app.Test.Service.Implementation
     {
         private readonly IDBCommandRepository<ServiceRequest> _serviceRequestCommandRepo = Substitute.For<IDBCommandRepository<ServiceRequest>>();
         private readonly IDBQueryRepository<ServiceRequest> _serviceRequestQueryRepo = Substitute.For<IDBQueryRepository<ServiceRequest>>();
+        private readonly IDBQueryRepository<Reservation> _reservationQueryRepo = Substitute.For<IDBQueryRepository<Reservation>>();
         private readonly IDBCommandRepository<AuditLog> _auditLogCommandRepo = Substitute.For<IDBCommandRepository<AuditLog>>();
+        private readonly INotificationService _notificationService = Substitute.For<INotificationService>();
+        private readonly UserManager<ApplicationUser> _userManager = Substitute.For<UserManager<ApplicationUser>>(
+            Substitute.For<IUserStore<ApplicationUser>>(), null, null, null, null, null, null, null, null);
         private readonly IMapper _mapper = Substitute.For<IMapper>();
+        private readonly hotelier_core_app.Core.Helpers.Interface.IUtility _utility = Substitute.For<hotelier_core_app.Core.Helpers.Interface.IUtility>();
 
         private ServiceRequestService CreateService() => new(
             _serviceRequestCommandRepo,
             _serviceRequestQueryRepo,
+            _reservationQueryRepo,
             _auditLogCommandRepo,
-            _mapper);
+            _notificationService,
+            _userManager,
+            _mapper,
+            _utility);
 
         [Fact]
         public async Task ChangeServiceRequestStateAsync_ShouldReturnFailure_WhenServiceRequestNotFound()

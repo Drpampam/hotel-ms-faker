@@ -1,0 +1,43 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Deploy: connect this repo in Render dashboard → "New Blueprint Instance"
+
+services:
+  - type: web
+    name: hotel-ms-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free                        # free tier (750 hrs/month)
+    healthCheckPath: /healthz
+    autoDeploy: true
+
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+
+      # ── Database (Neon free PostgreSQL) ──────────────────────────────────
+      # Paste your Neon connection string here after creating a Neon project.
+      # Format: Host=ep-xxx.us-east-2.aws.neon.tech;Database=hotel_ms;Username=xxx;Password=xxx;SSL Mode=Require;Trust Server Certificate=true
+      - key: ConnectionStrings__DbConnectionString
+        sync: false                   # set manually in Render dashboard (secret)
+
+      # ── JWT ──────────────────────────────────────────────────────────────
+      - key: JwtTokenSettings__TokenKey
+        sync: false                   # set manually — use a random 64-char string
+      - key: JwtTokenSettings__TokenIssuer
+        value: hotel-ms-api
+
+      # ── CORS ─────────────────────────────────────────────────────────────
+      # Space-separated list; will be split by the app at startup.
+      # Or set to your frontend URL, e.g. https://my-hotel-frontend.vercel.app
+      - key: AllowedOrigins__0
+        value: "*"                    # update to your real frontend origin
+
+      # ── Email (optional — remove if not using SMTP) ───────────────────────
+      - key: EmailSettings__Host
+        sync: false
+      - key: EmailSettings__Username
+        sync: false
+      - key: EmailSettings__Password
+        sync: false
+      - key: EmailSettings__FromAddress
+        sync: false

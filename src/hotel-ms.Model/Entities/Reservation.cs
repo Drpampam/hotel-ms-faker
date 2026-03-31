@@ -1,3 +1,4 @@
+using hotelier_core_app.Core.States;
 using hotelier_core_app.Model.Attributes;
 using hotelier_core_app.Model.Interfaces;
 using System.ComponentModel.DataAnnotations;
@@ -8,36 +9,22 @@ namespace hotelier_core_app.Model.Entities
     [Table("Reservation")]
     [TableName("Reservation")]
     [Serializable]
-    /// <summary>
-    /// Represents a reservation entity in the system.
-    /// </summary>
     public class Reservation : IBaseEntity
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        /// <summary>
-        /// Gets or sets the unique identifier for the reservation.
-        /// </summary>
         public long Id { get; set; }
-        /// <summary>
-        /// Gets or sets the check-in date for the reservation.
-        /// </summary>
+
         public DateTime CheckInDate { get; set; }
-        /// <summary>
-        /// Gets or sets the check-out date for the reservation.
-        /// </summary>
+
         public DateTime CheckOutDate { get; set; }
 
-        /// <summary>
-        /// Gets or sets the total price for the reservation.
-        /// </summary>
         public decimal TotalPrice { get; set; }
 
-        [StringLength(255)]
-        /// <summary>
-        /// Gets or sets the status of the reservation.
-        /// </summary>
-        public string? Status { get; set; }
+        public ReservationState Status { get; set; } = ReservationState.Pending;
+
+        [StringLength(500)]
+        public string? SpecialRequests { get; set; }
 
         [StringLength(200)]
         /// <summary>

@@ -18,6 +18,9 @@ namespace hotelier_core_app.Model.Entities
         [StringLength(150)]
         public string? ServiceType { get; set; }
 
+        [StringLength(500)]
+        public string? Notes { get; set; }
+
         // State machine properties
         [StringLength(50)]
         public ServiceRequestState ServiceRequestState { get; set; } = ServiceRequestState.Requested;

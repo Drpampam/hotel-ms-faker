@@ -105,7 +105,17 @@ namespace hotelier_core_app.Migrations
                 var result = await userManager.CreateAsync(adminUser, "P@ssw0rd!");
                 if (result.Succeeded)
                 {
-                    await userManager.AddToRoleAsync(adminUser, "SuperAdmin");
+                    var superAdminRole = await roleManager.FindByNameAsync("SuperAdmin");
+                    if (superAdminRole != null)
+                    {
+                        await context.UserRoles.AddAsync(new ApplicationUserRole
+                        {
+                            UserId = adminUser.Id,
+                            RoleId = superAdminRole.Id,
+                            TenantId = defaultTenant!.Id
+                        });
+                        await context.SaveChangesAsync();
+                    }
                 }
             }
 

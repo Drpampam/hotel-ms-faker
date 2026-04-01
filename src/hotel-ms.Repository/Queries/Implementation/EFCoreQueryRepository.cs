@@ -152,9 +152,9 @@ namespace hotelier_core_app.Domain.Queries.Implementation
         /// </summary>
         /// <param name="predicate">The predicate to filter entities.</param>
         /// <returns>A task representing the asynchronous operation, with an enumerable of matching entities.</returns>
-        public Task<IEnumerable<TEntity>> GetByAsync(Expression<Func<TEntity, bool>> predicate)
+        public async Task<IEnumerable<TEntity>> GetByAsync(Expression<Func<TEntity, bool>> predicate)
         {
-            throw new NotImplementedException();
+            return await _dbSet.AsNoTracking().Where(predicate).ToListAsync();
         }
 
         /// <summary>
@@ -376,9 +376,9 @@ namespace hotelier_core_app.Domain.Queries.Implementation
         /// <param name="limit">The maximum number of entities to return.</param>
         /// <param name="predicate">The predicate to filter entities.</param>
         /// <returns>A task representing the asynchronous operation, with an enumerable of matching entities.</returns>
-        public Task<IEnumerable<TEntity>> GetByWithLimitAsync(int limit, Expression<Func<TEntity, bool>> predicate)
+        public async Task<IEnumerable<TEntity>> GetByWithLimitAsync(int limit, Expression<Func<TEntity, bool>> predicate)
         {
-            throw new NotImplementedException();
+            return await _dbSet.AsNoTracking().Where(predicate).Take(limit).ToListAsync();
         }
 
         /// <summary>
@@ -386,9 +386,9 @@ namespace hotelier_core_app.Domain.Queries.Implementation
         /// </summary>
         /// <param name="predicate">The predicate to filter entities.</param>
         /// <returns>A task representing the asynchronous operation, with the count of matching entities.</returns>
-        public Task<int> GetCountAsync(Expression<Func<TEntity, bool>> predicate)
+        public async Task<int> GetCountAsync(Expression<Func<TEntity, bool>> predicate)
         {
-            throw new NotImplementedException();
+            return await _dbSet.AsNoTracking().CountAsync(predicate);
         }
 
         /// <summary>

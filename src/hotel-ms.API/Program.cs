@@ -188,11 +188,12 @@ var app = builder.Build();
 DatabaseSeeder.Seeder(app.Services).Wait();
 
 // Configure the HTTP request pipeline.
+app.UseSwagger();
+app.UseSwaggerUI();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
-    app.UseSwagger();
-    app.UseSwaggerUI();
 }
 
 app.UseRateLimiter();

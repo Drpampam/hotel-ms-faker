@@ -375,15 +375,8 @@ namespace hotelier_core_app.Migrations.Migrations
                 oldType: "character varying(200)",
                 oldMaxLength: 200);
 
-            migrationBuilder.AlterColumn<int>(
-                name: "Status",
-                schema: "public",
-                table: "Reservation",
-                type: "integer",
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(255)",
-                oldMaxLength: 255);
+            // PostgreSQL requires an explicit USING clause when casting varchar -> integer
+            migrationBuilder.Sql(@"ALTER TABLE public.""Reservation"" ALTER COLUMN ""Status"" TYPE integer USING ""Status""::integer;");
 
             migrationBuilder.AlterColumn<string>(
                 name: "CreatedBy",

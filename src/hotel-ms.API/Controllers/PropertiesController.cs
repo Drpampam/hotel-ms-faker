@@ -84,7 +84,7 @@ namespace hotelier_core_app.API.Controllers
         [HttpGet("")]
         [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse))]
         [ProducesResponseType((int)HttpStatusCode.InternalServerError, Type = typeof(BaseResponse))]
-        public async Task<IActionResult> GetTenantProperties(GetPropertiesInputDTO input)
+        public async Task<IActionResult> GetTenantProperties([FromQuery] GetPropertiesInputDTO input)
         {
             var response = await _propertyService.GetTenantPropertyList(input);
             return Ok(response);

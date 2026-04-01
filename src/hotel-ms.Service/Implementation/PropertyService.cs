@@ -113,7 +113,7 @@ namespace hotelier_core_app.Service.Implementation
 
         public async Task<PageBaseResponse<List<PropertyResponseDTO>>> GetTenantPropertyList(GetPropertiesInputDTO input)
         {
-            var properties = await _propertyQueryRepository.GetByAsync(p => p.TenantId == input.TenantId);
+            var properties = await _propertyQueryRepository.GetByAsync(p => !input.TenantId.HasValue || p.TenantId == input.TenantId);
             var paginated = _utility.Paginate(properties, input.PageNumber, input.PageSize);
             var response = _mapper.Map<List<PropertyResponseDTO>>(paginated);
 

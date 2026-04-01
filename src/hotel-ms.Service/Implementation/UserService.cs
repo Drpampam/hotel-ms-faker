@@ -145,21 +145,33 @@ namespace hotelier_core_app.Service.Implementation
                 return HandleIdentityErrors(newUserResult);
             }
 
+            // Create tenant first so we have a valid TenantId for the UserRole FK
+            var tenant = await CreateTenantAsync(model, newUser);
+
             if (!await _roleManager.RoleExistsAsync(model.Role.ToString()))
             {
                 ApplicationRole newRole = _mapper.Map<ApplicationRole>(model);
                 newRole.CreationDate = DateTime.UtcNow;
                 newRole.CreatedBy = HOTELIER_ADMIN;
+                newRole.TenantId = tenant.Id;
                 await _roleManager.CreateAsync(newRole);
             }
 
             try
             {
-                var roleAssignmentResult = await _userManager.AddToRoleAsync(newUser, model.Role.ToString());
-                if (!roleAssignmentResult.Succeeded)
+                var role = await _roleManager.FindByNameAsync(model.Role.ToString());
+                if (role == null) throw new Exception($"Role '{model.Role}' not found after creation.");
+
+                var dbContext = _tenantCommandRepository as DbContext;
+                if (dbContext == null) throw new Exception("Unable to resolve DbContext for role assignment.");
+
+                await dbContext.Set<ApplicationUserRole>().AddAsync(new ApplicationUserRole
                 {
-                    throw new Exception(HandleIdentityErrors(roleAssignmentResult).Message);
-                }
+                    UserId = newUser.Id,
+                    RoleId = role.Id,
+                    TenantId = tenant.Id
+                });
+                await dbContext.SaveChangesAsync();
             }
             catch (Exception ex)
             {
@@ -173,8 +185,6 @@ namespace hotelier_core_app.Service.Implementation
             await _auditLogCommandRepository.AddAsync(auditLog);
 
             await SendEmailConfirmationAsync(newUser, model.Email);
-
-            await CreateTenantAsync(model, newUser);
 
             return BaseResponse.Success(ResponseMessages.UserCreated, ResponseStatusCode.UserCreated);
         }
@@ -525,14 +535,14 @@ namespace hotelier_core_app.Service.Implementation
                 null));
         }
 
-        private async Task CreateTenantAsync(CreateUserRequestDTO model, ApplicationUser newUser)
+        private async Task<Tenant> CreateTenantAsync(CreateUserRequestDTO model, ApplicationUser newUser)
         {
             var tenant = new Tenant
             {
                 Name = model.HotelName,
                 Description = $"Tenant for {model.HotelName}",
                 Logo = string.Empty,
-                SubscriptionPlanId = model.SubscriptionPlanId,
+                SubscriptionPlanId = model.SubscriptionPlanId > 0 ? model.SubscriptionPlanId : null,
                 CreatedBy = newUser.Id.ToString(),
                 CreationDate = DateTime.UtcNow
             };
@@ -543,6 +553,8 @@ namespace hotelier_core_app.Service.Implementation
             await _tenantCommandRepository.SaveAsync();
 
             await CreateTenantSchemaAsync($"tenant_{tenant.Id}");
+
+            return tenant;
         }
 
         protected virtual async Task CreateTenantSchemaAsync(string schemaName)

@@ -32,18 +32,9 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // Tenant ID: from zustand store or default to 1
-    let tenantId = 1;
-    try {
-      const stored = localStorage.getItem('hotel-ms-auth');
-      if (stored) {
-        const parsed = JSON.parse(stored) as { state?: { tenantId?: number } };
-        tenantId = parsed?.state?.tenantId ?? 1;
-      }
-    } catch {
-      // ignore
-    }
-    config.headers['X-Tenant-Id'] = String(tenantId);
+    // Do not send X-Tenant-Id — the middleware defaults to 'public' schema
+    // which is where all data lives. Sending a numeric tenant ID routes queries
+    // to an empty tenant-specific schema (e.g. tenant_1) causing 42P01 errors.
 
     return config;
   },

@@ -69,15 +69,15 @@ namespace hotelier_core_app.Migrations
 
             // ── Roles ────────────────────────────────────────────────────────────
             var roleNames = new[] { "SuperAdmin", "Admin", "FrontDesk", "Housekeeping", "Guest", "Developer" };
+            var roleTenant = await context.Tenants.FirstOrDefaultAsync();
             foreach (var roleName in roleNames)
             {
                 if (!await roleManager.RoleExistsAsync(roleName))
                 {
-                    var defaultTenant = await context.Tenants.FirstOrDefaultAsync();
                     await roleManager.CreateAsync(new ApplicationRole
                     {
                         Name = roleName,
-                        TenantId = defaultTenant?.Id,
+                        TenantId = roleTenant?.Id,
                         CreationDate = DateTime.UtcNow,
                         CreatedBy = "System"
                     });
@@ -86,9 +86,11 @@ namespace hotelier_core_app.Migrations
 
             // ── Default Admin User ───────────────────────────────────────────────
             var adminEmail = "admin@hotelier.io";
-            if (await userManager.FindByEmailAsync(adminEmail) == null)
+            var defaultTenant = await context.Tenants.FirstOrDefaultAsync();
+            var existingAdmin = await userManager.FindByEmailAsync(adminEmail);
+
+            if (existingAdmin == null)
             {
-                var defaultTenant = await context.Tenants.FirstOrDefaultAsync();
                 var adminUser = new ApplicationUser
                 {
                     UserName = adminEmail,
@@ -105,12 +107,24 @@ namespace hotelier_core_app.Migrations
                 var result = await userManager.CreateAsync(adminUser, "P@ssw0rd!");
                 if (result.Succeeded)
                 {
-                    var superAdminRole = await roleManager.FindByNameAsync("SuperAdmin");
-                    if (superAdminRole != null)
+                    existingAdmin = adminUser;
+                }
+            }
+
+            // Ensure admin has SuperAdmin role regardless of when the user was created
+            if (existingAdmin != null)
+            {
+                var superAdminRole = await roleManager.FindByNameAsync("SuperAdmin");
+                var hasRole = superAdminRole != null && await context.UserRoles
+                    .AnyAsync(ur => ur.UserId == existingAdmin.Id && ur.RoleId == superAdminRole.Id);
+
+                if (superAdminRole != null && !hasRole)
+                {
+                    if (defaultTenant != null)
                     {
                         await context.UserRoles.AddAsync(new ApplicationUserRole
                         {
-                            UserId = adminUser.Id,
+                            UserId = existingAdmin.Id,
                             RoleId = superAdminRole.Id,
                             TenantId = defaultTenant!.Id
                         });

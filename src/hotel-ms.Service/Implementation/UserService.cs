@@ -36,6 +36,7 @@ namespace hotelier_core_app.Service.Implementation
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly IDBCommandRepository<AuditLog> _auditLogCommandRepository;
         private readonly IDBCommandRepository<Tenant> _tenantCommandRepository;
+        private readonly IDBCommandRepository<ApplicationUserRole> _userRoleCommandRepository;
         private readonly IEmailService _emailService;
         private readonly IMapper _mapper;
         private readonly string _clientUrl;
@@ -49,6 +50,7 @@ namespace hotelier_core_app.Service.Implementation
             SignInManager<ApplicationUser> signInManager,
             IDBCommandRepository<AuditLog> auditLogCommandRepository,
             IDBCommandRepository<Tenant> tenantCommandRepository,
+            IDBCommandRepository<ApplicationUserRole> userRoleCommandRepository,
             IEmailService emailService,
             IMapper mapper,
             IConfiguration config,
@@ -59,6 +61,7 @@ namespace hotelier_core_app.Service.Implementation
             _signInManager = signInManager;
             _auditLogCommandRepository = auditLogCommandRepository;
             _tenantCommandRepository = tenantCommandRepository;
+            _userRoleCommandRepository = userRoleCommandRepository;
             _emailService = emailService;
             _mapper = mapper;
             _clientUrl = config.GetSection("Client:ClientURI").Value ?? string.Empty;
@@ -162,16 +165,13 @@ namespace hotelier_core_app.Service.Implementation
                 var role = await _roleManager.FindByNameAsync(model.Role.ToString());
                 if (role == null) throw new Exception($"Role '{model.Role}' not found after creation.");
 
-                var dbContext = _tenantCommandRepository as DbContext;
-                if (dbContext == null) throw new Exception("Unable to resolve DbContext for role assignment.");
-
-                await dbContext.Set<ApplicationUserRole>().AddAsync(new ApplicationUserRole
+                await _userRoleCommandRepository.AddAsync(new ApplicationUserRole
                 {
                     UserId = newUser.Id,
                     RoleId = role.Id,
                     TenantId = tenant.Id
                 });
-                await dbContext.SaveChangesAsync();
+                await _userRoleCommandRepository.SaveAsync();
             }
             catch (Exception ex)
             {

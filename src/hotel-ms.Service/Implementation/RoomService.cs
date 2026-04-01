@@ -53,6 +53,7 @@ namespace hotelier_core_app.Service.Implementation
 
             _roomCommandRepository.Add(room);
             _auditLogCommandRepository.Add(auditLog);
+            await _roomCommandRepository.SaveAsync();
 
             var response = _mapper.Map<RoomResponseDTO>(room);
             return BaseResponse<RoomResponseDTO>.Success(response, ResponseMessages.RoomCreated, ResponseStatusCode.RoomCreated);
@@ -73,6 +74,7 @@ namespace hotelier_core_app.Service.Implementation
 
             await _roomCommandRepository.UpdateAsync(room);
             _auditLogCommandRepository.Add(auditLog);
+            await _auditLogCommandRepository.SaveAsync();
 
             var response = _mapper.Map<RoomResponseDTO>(room);
             return BaseResponse<RoomResponseDTO>.Success(response, ResponseMessages.RoomUpdated, ResponseStatusCode.RoomUpdated);
@@ -116,6 +118,7 @@ namespace hotelier_core_app.Service.Implementation
 
             await _roomCommandRepository.UpdateAsync(room);
             _auditLogCommandRepository.Add(auditLog);
+            await _auditLogCommandRepository.SaveAsync();
 
             return BaseResponse.Success(ResponseMessages.RoomDeleted, ResponseStatusCode.RoomDeleted);
         }

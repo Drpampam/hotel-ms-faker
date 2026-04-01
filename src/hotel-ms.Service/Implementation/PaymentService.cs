@@ -52,6 +52,7 @@ namespace hotelier_core_app.Service.Implementation
 
             _paymentCommandRepository.Add(payment);
             _auditLogCommandRepository.Add(auditLog);
+            await _paymentCommandRepository.SaveAsync();
 
             var response = _mapper.Map<PaymentResponseDTO>(payment);
             return BaseResponse<PaymentResponseDTO>.Success(response, ResponseMessages.PaymentCreated, ResponseStatusCode.PaymentCreated);

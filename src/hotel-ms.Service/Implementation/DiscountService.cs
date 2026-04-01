@@ -48,6 +48,7 @@ namespace hotelier_core_app.Service.Implementation
 
             _discountCommandRepository.Add(discount);
             _auditLogCommandRepository.Add(auditLog);
+            await _discountCommandRepository.SaveAsync();
 
             var response = _mapper.Map<DiscountResponseDTO>(discount);
             return BaseResponse<DiscountResponseDTO>.Success(response, ResponseMessages.DiscountCreated, ResponseStatusCode.DiscountCreated);
@@ -73,6 +74,7 @@ namespace hotelier_core_app.Service.Implementation
 
             await _discountCommandRepository.UpdateAsync(discount);
             _auditLogCommandRepository.Add(auditLog);
+            await _auditLogCommandRepository.SaveAsync();
 
             var response = _mapper.Map<DiscountResponseDTO>(discount);
             return BaseResponse<DiscountResponseDTO>.Success(response, ResponseMessages.DiscountUpdated, ResponseStatusCode.DiscountUpdated);
@@ -115,6 +117,7 @@ namespace hotelier_core_app.Service.Implementation
 
             await _discountCommandRepository.UpdateAsync(discount);
             _auditLogCommandRepository.Add(auditLog);
+            await _auditLogCommandRepository.SaveAsync();
 
             return BaseResponse.Success(ResponseMessages.DiscountDeleted, ResponseStatusCode.DiscountDeleted);
         }

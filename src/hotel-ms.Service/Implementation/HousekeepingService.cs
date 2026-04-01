@@ -71,6 +71,7 @@ namespace hotelier_core_app.Service.Implementation
 
             _taskCommandRepository.Add(task);
             _auditLogCommandRepository.Add(auditLog);
+            await _taskCommandRepository.SaveAsync();
 
             var response = await BuildTaskResponse(task, room);
             return BaseResponse<HousekeepingTaskResponseDTO>.Success(response, ResponseMessages.HousekeepingTaskCreated, ResponseStatusCode.OperationSuccessful);
@@ -131,6 +132,7 @@ namespace hotelier_core_app.Service.Implementation
 
             await _taskCommandRepository.UpdateAsync(task);
             _auditLogCommandRepository.Add(auditLog);
+            await _auditLogCommandRepository.SaveAsync();
 
             var room = await _roomQueryRepository.FindAsync(task.RoomId);
 

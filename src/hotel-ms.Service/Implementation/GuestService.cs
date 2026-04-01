@@ -61,6 +61,7 @@ namespace hotelier_core_app.Service.Implementation
 
             _guestProfileCommandRepository.Add(profile);
             _auditLogCommandRepository.Add(auditLog);
+            await _guestProfileCommandRepository.SaveAsync();
 
             var response = BuildGuestResponse(profile, user);
             return BaseResponse<GuestProfileResponseDTO>.Success(response, ResponseMessages.GuestProfileCreated, ResponseStatusCode.GuestProfileCreated);
@@ -82,6 +83,7 @@ namespace hotelier_core_app.Service.Implementation
 
             await _guestProfileCommandRepository.UpdateAsync(profile);
             _auditLogCommandRepository.Add(auditLog);
+            await _auditLogCommandRepository.SaveAsync();
 
             var user = await _userManager.FindByIdAsync(profile.UserId.ToString());
             var response = BuildGuestResponse(profile, user);

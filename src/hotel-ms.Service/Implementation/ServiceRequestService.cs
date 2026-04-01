@@ -60,6 +60,7 @@ namespace hotelier_core_app.Service.Implementation
 
             _serviceRequestCommandRepository.Add(serviceRequest);
             _auditLogCommandRepository.Add(auditLog);
+            await _serviceRequestCommandRepository.SaveAsync();
 
             var response = _mapper.Map<ServiceRequestResponseDTO>(serviceRequest);
             return BaseResponse<ServiceRequestResponseDTO>.Success(response, ResponseMessages.ServiceRequestCreated, ResponseStatusCode.ServiceRequestCreated);

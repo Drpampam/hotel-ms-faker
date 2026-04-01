@@ -69,6 +69,7 @@ namespace hotelier_core_app.Service.Implementation
             _propertyCommandRepository.Add(property);
 
             _auditLogCommandRepository.Add(auditLog);
+            await _propertyCommandRepository.SaveAsync();
 
             return BaseResponse.Success();
         }
@@ -96,6 +97,7 @@ namespace hotelier_core_app.Service.Implementation
             address.Latitude = request.Address.Latitude;
             address.Longitude = request.Address.Longitude;
             _addressCommandRepository.Update(address);
+            await _propertyCommandRepository.SaveAsync();
 
             return BaseResponse.Success();
         }

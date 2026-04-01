@@ -104,7 +104,7 @@ namespace hotelier_core_app.Service.Implementation
 
         public async Task<BaseResponse<PropertyResponseDTO>> GetById(long id)
         {
-            var property = _propertyQueryRepository.FindByInclude(p => p.Id == id, p => p.Address);
+            var property = _propertyQueryRepository.FindByInclude(p => p.Id == id, p => p.Address).FirstOrDefault();
             if (property == null) return BaseResponse<PropertyResponseDTO>.Failure(new PropertyResponseDTO(), ResponseMessages.PropertyNotFound);
 
             var response = _mapper.Map<PropertyResponseDTO>(property);

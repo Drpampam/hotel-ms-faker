@@ -35,12 +35,11 @@ export function Sidebar() {
   const { user, logout } = useAuth();
   const location = useLocation();
 
+  const nameParts = (user?.fullName ?? '').trim().split(/\s+/);
   const initials = user
-    ? getInitials(user.firstName || 'U', user.lastName || 'S')
+    ? getInitials(nameParts[0] || 'U', nameParts.slice(1).join(' ') || 'S')
     : 'US';
-  const fullName = user
-    ? getFullName(user.firstName || '', user.lastName || '')
-    : 'User';
+  const fullName = user?.fullName || 'User';
 
   return (
     <>
@@ -167,7 +166,7 @@ export function Sidebar() {
                   {fullName || user?.email || 'User'}
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                  {user?.role ?? 'Admin'}
+                  {user?.roles?.[0] ?? 'Admin'}
                 </p>
               </div>
             )}

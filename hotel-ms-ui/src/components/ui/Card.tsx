@@ -7,6 +7,7 @@ interface CardProps {
   glass?: boolean;
   hover?: boolean;
   padding?: 'none' | 'sm' | 'md' | 'lg';
+  onClick?: () => void;
 }
 
 const paddings = {
@@ -16,9 +17,10 @@ const paddings = {
   lg: 'p-8',
 };
 
-export function Card({ children, className, glass = false, hover = false, padding = 'md' }: CardProps) {
+export function Card({ children, className, glass = false, hover = false, padding = 'md', onClick }: CardProps) {
   return (
     <div
+      onClick={onClick}
       className={cn(
         'rounded-2xl border transition-all duration-200',
         glass

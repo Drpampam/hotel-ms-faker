@@ -10,29 +10,16 @@ import { Card } from '../components/ui/Card';
 import { Table } from '../components/ui/Table';
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../lib/store';
-import type { Guest, CreateGuestRequest } from '../types';
+import type { Guest } from '../types';
 import { formatDate, getInitials } from '../lib/utils';
 
-const MOCK_GUESTS: Guest[] = [
-  { id: '1', firstName: 'James', lastName: 'Morrison', email: 'james.morrison@example.com', phoneNumber: '+1 555-0101', country: 'United States', nationality: 'American', tenantId: 1, createdAt: new Date(Date.now() - 10 * 86400000).toISOString(), totalReservations: 3 },
-  { id: '2', firstName: 'Sarah', lastName: 'Chen', email: 'sarah.chen@example.com', phoneNumber: '+1 555-0102', country: 'Canada', nationality: 'Canadian', tenantId: 1, createdAt: new Date(Date.now() - 20 * 86400000).toISOString(), totalReservations: 1 },
-  { id: '3', firstName: 'Robert', lastName: 'Williams', email: 'r.williams@example.com', phoneNumber: '+44 20 7946 0101', country: 'United Kingdom', nationality: 'British', tenantId: 1, createdAt: new Date(Date.now() - 5 * 86400000).toISOString(), totalReservations: 5 },
-  { id: '4', firstName: 'Emily', lastName: 'Davis', email: 'emily.davis@example.com', phoneNumber: '+61 2 8765 4321', country: 'Australia', nationality: 'Australian', tenantId: 1, createdAt: new Date(Date.now() - 45 * 86400000).toISOString(), totalReservations: 2 },
-  { id: '5', firstName: 'Michael', lastName: 'Scott', email: 'm.scott@dundermifflin.com', phoneNumber: '+1 570-555-0199', country: 'United States', nationality: 'American', tenantId: 1, createdAt: new Date(Date.now() - 60 * 86400000).toISOString(), totalReservations: 7 },
-  { id: '6', firstName: 'Anna', lastName: 'Johnson', email: 'anna.j@example.com', phoneNumber: '+49 30 12345678', country: 'Germany', nationality: 'German', tenantId: 1, createdAt: new Date(Date.now() - 15 * 86400000).toISOString(), totalReservations: 1 },
-];
-
 const createGuestSchema = z.object({
-  firstName: z.string().min(1, 'First name is required').max(50),
-  lastName: z.string().min(1, 'Last name is required').max(50),
-  email: z.string().email('Invalid email address'),
-  phoneNumber: z.string().optional(),
-  address: z.string().optional(),
-  city: z.string().optional(),
-  country: z.string().optional(),
+  userId: z.string().min(1, 'User ID is required'),
   nationality: z.string().optional(),
-  idType: z.string().optional(),
-  idNumber: z.string().optional(),
+  passportNumber: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+  preferredRoomType: z.string().optional(),
+  specialRequests: z.string().optional(),
 });
 
 type CreateGuestFormData = z.infer<typeof createGuestSchema>;
@@ -59,13 +46,13 @@ export function GuestsPage() {
     setIsLoading(true);
     try {
       const data = await guestService.getAll();
-      setGuests(data.length > 0 ? data : MOCK_GUESTS);
+      setGuests(data);
     } catch {
-      setGuests(MOCK_GUESTS);
+      toast.error('Failed to load guests', 'Could not fetch guest profiles');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     fetchGuests();
@@ -77,7 +64,7 @@ export function GuestsPage() {
     return (
       g.firstName.toLowerCase().includes(query) ||
       g.lastName.toLowerCase().includes(query) ||
-      g.email.toLowerCase().includes(query) ||
+      (g.email ?? '').toLowerCase().includes(query) ||
       (g.phoneNumber ?? '').toLowerCase().includes(query) ||
       (g.country ?? '').toLowerCase().includes(query)
     );
@@ -86,25 +73,20 @@ export function GuestsPage() {
   const onSubmit = async (data: CreateGuestFormData) => {
     setIsSubmitting(true);
     try {
-      const payload: CreateGuestRequest = {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        email: data.email,
-        phoneNumber: data.phoneNumber,
-        address: data.address,
-        city: data.city,
-        country: data.country,
+      await guestService.create({
+        userId: Number(data.userId),
         nationality: data.nationality,
-        idType: data.idType,
-        idNumber: data.idNumber,
-      };
-      await guestService.create(payload);
-      toast.success('Guest created', `${data.firstName} ${data.lastName} has been added`);
+        passportNumber: data.passportNumber,
+        dateOfBirth: data.dateOfBirth,
+        preferredRoomType: data.preferredRoomType,
+        specialRequests: data.specialRequests,
+      });
+      toast.success('Guest profile created', 'Guest profile has been added');
       setIsCreateOpen(false);
       reset();
       await fetchGuests();
     } catch {
-      toast.error('Failed to create guest', 'Please check the details and try again');
+      toast.error('Failed to create guest profile', 'Check that the User ID exists and try again');
     } finally {
       setIsSubmitting(false);
     }
@@ -237,8 +219,8 @@ export function GuestsPage() {
       <Modal
         isOpen={isCreateOpen}
         onClose={() => { setIsCreateOpen(false); reset(); }}
-        title="Add New Guest"
-        description="Enter the guest's personal information"
+        title="Create Guest Profile"
+        description="Link a guest profile to an existing user account"
         size="lg"
         footer={
           <>
@@ -246,26 +228,33 @@ export function GuestsPage() {
               Cancel
             </Button>
             <Button isLoading={isSubmitting} onClick={handleSubmit(onSubmit)}>
-              Add Guest
+              Create Profile
             </Button>
           </>
         }
       >
         <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+          <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              Guest profiles are linked to existing user accounts. Create the user account first (in Users), then create their guest profile here.
+            </p>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input label="First Name" required placeholder="John" {...register('firstName')} error={errors.firstName?.message} />
-            <Input label="Last Name" required placeholder="Doe" {...register('lastName')} error={errors.lastName?.message} />
             <div className="sm:col-span-2">
-              <Input label="Email Address" required type="email" placeholder="john@example.com" leftIcon={<Mail className="h-4 w-4" />} {...register('email')} error={errors.email?.message} />
+              <Input label="User ID" required placeholder="Enter the user's numeric ID" type="number" leftIcon={<User className="h-4 w-4" />} {...register('userId')} error={errors.userId?.message} />
             </div>
-            <Input label="Phone Number" type="tel" placeholder="+1 555-0100" leftIcon={<Phone className="h-4 w-4" />} {...register('phoneNumber')} error={errors.phoneNumber?.message} />
-            <Input label="Nationality" placeholder="e.g. American" {...register('nationality')} />
-            <Input label="Country" placeholder="e.g. United States" leftIcon={<Globe className="h-4 w-4" />} {...register('country')} />
-            <Input label="City" placeholder="e.g. New York" {...register('city')} />
-            <Input label="Address" placeholder="Street address" {...register('address')} />
-            <div className="sm:col-span-2 grid grid-cols-2 gap-4">
-              <Input label="ID Type" placeholder="e.g. Passport, Driver's License" {...register('idType')} />
-              <Input label="ID Number" placeholder="ID document number" {...register('idNumber')} />
+            <Input label="Nationality" placeholder="e.g. American" leftIcon={<Globe className="h-4 w-4" />} {...register('nationality')} />
+            <Input label="Passport Number" placeholder="Passport / ID number" {...register('passportNumber')} />
+            <Input label="Date of Birth" type="date" {...register('dateOfBirth')} />
+            <Input label="Preferred Room Type" placeholder="e.g. Deluxe, Suite" {...register('preferredRoomType')} />
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Special Requests</label>
+              <textarea
+                {...register('specialRequests')}
+                rows={2}
+                placeholder="Any standing preferences..."
+                className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+              />
             </div>
           </div>
         </form>

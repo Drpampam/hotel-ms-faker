@@ -99,12 +99,11 @@ export function UsersPage() {
     setIsSubmitting(true);
     try {
       const payload: CreateUserRequest = {
-        firstName: data.firstName,
-        lastName: data.lastName,
+        fullName: `${data.firstName} ${data.lastName}`.trim(),
         email: data.email,
         password: data.password,
         role: data.role as UserRole,
-        phoneNumber: data.phoneNumber,
+        phoneNumber: data.phoneNumber ?? '',
       };
       await userService.create(payload);
       toast.success('User created', `${data.firstName} ${data.lastName} has been added`);

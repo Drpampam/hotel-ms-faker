@@ -20,76 +20,9 @@ const statusVariant: Record<string, 'warning' | 'info' | 'success' | 'default' |
   NoShow: 'secondary',
 };
 
-const MOCK_RESERVATIONS: Reservation[] = [
-  {
-    id: '1',
-    guestName: 'James Morrison',
-    roomNumber: '201',
-    checkInDate: new Date(Date.now() + 86400000).toISOString(),
-    checkOutDate: new Date(Date.now() + 3 * 86400000).toISOString(),
-    status: 'Confirmed',
-    totalAmount: 450,
-    guestId: '1',
-    roomId: '1',
-    tenantId: 1,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    guestName: 'Sarah Chen',
-    roomNumber: '305',
-    checkInDate: new Date().toISOString(),
-    checkOutDate: new Date(Date.now() + 2 * 86400000).toISOString(),
-    status: 'CheckedIn',
-    totalAmount: 320,
-    guestId: '2',
-    roomId: '2',
-    tenantId: 1,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    guestName: 'Robert Williams',
-    roomNumber: '102',
-    checkInDate: new Date(Date.now() - 86400000).toISOString(),
-    checkOutDate: new Date(Date.now() + 86400000).toISOString(),
-    status: 'CheckedIn',
-    totalAmount: 280,
-    guestId: '3',
-    roomId: '3',
-    tenantId: 1,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '4',
-    guestName: 'Emily Davis',
-    roomNumber: '414',
-    checkInDate: new Date(Date.now() + 2 * 86400000).toISOString(),
-    checkOutDate: new Date(Date.now() + 5 * 86400000).toISOString(),
-    status: 'Pending',
-    totalAmount: 750,
-    guestId: '4',
-    roomId: '4',
-    tenantId: 1,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '5',
-    guestName: 'Michael Scott',
-    roomNumber: '510',
-    checkInDate: new Date(Date.now() - 3 * 86400000).toISOString(),
-    checkOutDate: new Date(Date.now() - 86400000).toISOString(),
-    status: 'CheckedOut',
-    totalAmount: 560,
-    guestId: '5',
-    roomId: '5',
-    tenantId: 1,
-    createdAt: new Date().toISOString(),
-  },
-];
 
 export function RecentReservations({ reservations, isLoading = false }: RecentReservationsProps) {
-  const displayData = reservations.length > 0 ? reservations.slice(0, 5) : MOCK_RESERVATIONS;
+  const displayData = reservations.slice(0, 5);
 
   return (
     <Card padding="none">
@@ -108,6 +41,10 @@ export function RecentReservations({ reservations, isLoading = false }: RecentRe
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <Spinner />
+        </div>
+      ) : displayData.length === 0 ? (
+        <div className="flex items-center justify-center py-12 text-slate-400">
+          <p className="text-sm">No reservations yet</p>
         </div>
       ) : (
         <div className="overflow-x-auto">

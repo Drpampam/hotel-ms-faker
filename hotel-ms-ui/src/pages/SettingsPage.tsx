@@ -58,7 +58,8 @@ export function SettingsPage() {
     toast.success('Settings saved', 'Your preferences have been updated');
   };
 
-  const initials = user ? getInitials(user.firstName || 'U', user.lastName || 'S') : 'US';
+  const nameParts = (user?.fullName ?? '').trim().split(/\s+/);
+  const initials = user ? getInitials(nameParts[0] || 'U', nameParts.slice(1).join(' ') || 'S') : 'US';
 
   return (
     <div className="page-container">
@@ -112,19 +113,19 @@ export function SettingsPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-slate-900 dark:text-slate-100">
-                    {user?.firstName} {user?.lastName}
+                    {user?.fullName || user?.email || 'User'}
                   </h3>
                   <p className="text-sm text-slate-500 dark:text-slate-400">{user?.email}</p>
                   <div className="mt-1">
-                    <Badge variant="primary">{user?.role ?? 'Admin'}</Badge>
+                    <Badge variant="primary">{user?.roles?.[0] ?? 'Admin'}</Badge>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Input label="First Name" defaultValue={user?.firstName ?? ''} placeholder="First name" />
-                  <Input label="Last Name" defaultValue={user?.lastName ?? ''} placeholder="Last name" />
+                  <Input label="First Name" defaultValue={nameParts[0] ?? ''} placeholder="First name" />
+                  <Input label="Last Name" defaultValue={nameParts.slice(1).join(' ') ?? ''} placeholder="Last name" />
                   <div className="sm:col-span-2">
                     <Input label="Email Address" type="email" defaultValue={user?.email ?? ''} />
                   </div>

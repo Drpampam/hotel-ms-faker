@@ -59,22 +59,6 @@ const createSchema = z.object({
 
 type CreateFormData = z.infer<typeof createSchema>;
 
-const MOCK_RESERVATIONS: Reservation[] = Array.from({ length: 8 }, (_, i) => ({
-  id: `res-${i + 1}`,
-  reservationNumber: `RES-${String(i + 1001)}`,
-  guestId: `guest-${i + 1}`,
-  guestName: ['James Morrison', 'Sarah Chen', 'Robert Williams', 'Emily Davis', 'Michael Scott', 'Anna Johnson', 'David Brown', 'Lisa Wang'][i],
-  roomId: `room-${i + 1}`,
-  roomNumber: ['101', '202', '305', '414', '510', '601', '712', '803'][i],
-  checkInDate: new Date(Date.now() + (i - 3) * 86400000).toISOString(),
-  checkOutDate: new Date(Date.now() + (i - 3 + 2) * 86400000).toISOString(),
-  status: ['Confirmed', 'CheckedIn', 'Pending', 'CheckedOut', 'Confirmed', 'Cancelled', 'CheckedIn', 'Pending'][i] as Reservation['status'],
-  totalAmount: [450, 320, 280, 750, 560, 380, 920, 210][i],
-  adults: 2,
-  children: 0,
-  tenantId: 1,
-  createdAt: new Date(Date.now() - i * 86400000 * 2).toISOString(),
-}));
 
 export function ReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -102,7 +86,7 @@ export function ReservationsPage() {
   const checkIn = watch('checkInDate');
   const checkOut = watch('checkOutDate');
   const selectedRoomId = watch('roomId');
-  const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
+  const selectedRoom = rooms.find((r) => String(r.id) === selectedRoomId);
   const nights = checkIn && checkOut ? calculateNights(checkIn, checkOut) : 0;
   const estimatedTotal = selectedRoom && nights > 0 ? selectedRoom.pricePerNight * nights : 0;
 
@@ -114,12 +98,11 @@ export function ReservationsPage() {
         guestService.getAll(),
         roomService.getAll(),
       ]);
-      const resData = resList.status === 'fulfilled' ? resList.value : [];
-      setReservations(resData.length > 0 ? resData : MOCK_RESERVATIONS);
+      setReservations(resList.status === 'fulfilled' ? resList.value : []);
       setGuests(guestList.status === 'fulfilled' ? guestList.value : []);
       setRooms(roomList.status === 'fulfilled' ? roomList.value : []);
     } catch {
-      setReservations(MOCK_RESERVATIONS);
+      // leave state as empty arrays
     } finally {
       setIsLoading(false);
     }
@@ -144,12 +127,10 @@ export function ReservationsPage() {
     setIsSubmitting(true);
     try {
       const payload: CreateReservationRequest = {
-        guestId: data.guestId,
-        roomId: data.roomId,
+        guestId: Number(data.guestId),
+        roomId: Number(data.roomId),
         checkInDate: data.checkInDate,
         checkOutDate: data.checkOutDate,
-        adults: data.adults,
-        children: data.children,
         specialRequests: data.specialRequests,
       };
       await reservationService.create(payload);
@@ -170,7 +151,7 @@ export function ReservationsPage() {
       header: 'Reference',
       render: (r: Reservation) => (
         <span className="font-mono text-xs bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-md">
-          {r.reservationNumber ?? `#${r.id.slice(0, 6).toUpperCase()}`}
+          {r.reservationNumber ?? `#${String(r.id).padStart(6, '0')}`}
         </span>
       ),
     },
@@ -329,8 +310,8 @@ export function ReservationsPage() {
                 options={[
                   { value: '', label: 'Select a guest...' },
                   ...guests.map((g) => ({
-                    value: g.id,
-                    label: `${g.firstName} ${g.lastName} — ${g.email}`,
+                    value: String(g.id),
+                    label: `${g.firstName || g.fullName || '—'} — ${g.email ?? ''}`,
                   })),
                 ]}
                 {...register('guestId')}
@@ -351,8 +332,8 @@ export function ReservationsPage() {
                   ...rooms
                     .filter((r) => r.status === 'Available')
                     .map((r) => ({
-                      value: r.id,
-                      label: `Room ${r.roomNumber} — ${r.type} (Floor ${r.floor}) — ${formatCurrency(r.pricePerNight)}/night`,
+                      value: String(r.id),
+                      label: `Room ${r.roomNumber ?? r.number} — ${r.type}${r.floor ? ` (Floor ${r.floor})` : ''} — ${formatCurrency(r.pricePerNight)}/night`,
                     })),
                 ]}
                 {...register('roomId')}
@@ -442,7 +423,7 @@ export function ReservationsPage() {
               <div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Reference</p>
                 <p className="font-mono font-semibold text-slate-900 dark:text-slate-100">
-                  {viewReservation.reservationNumber ?? `#${viewReservation.id.slice(0, 8).toUpperCase()}`}
+                  {viewReservation.reservationNumber ?? `#${String(viewReservation.id).padStart(6, '0')}`}
                 </p>
               </div>
               <Badge variant={statusVariant[viewReservation.status] ?? 'default'} dot>

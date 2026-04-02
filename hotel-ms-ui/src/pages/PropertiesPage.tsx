@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Building2, MapPin, Plus, Edit, RefreshCw, Star } from 'lucide-react';
+import { Building2, MapPin, Plus, Edit, RefreshCw, Star, Save, X } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -72,7 +72,7 @@ function PropertyCard({ property, onEdit }: { property: Property; onEdit: (p: Pr
   );
 }
 
-interface AddPropertyForm {
+interface PropertyForm {
   name: string;
   description: string;
   street: string;
@@ -80,9 +80,27 @@ interface AddPropertyForm {
   state: string;
   country: string;
   zipCode: string;
+  latitude: string;
+  longitude: string;
 }
 
-const EMPTY_FORM: AddPropertyForm = { name: '', description: '', street: '', city: '', state: '', country: '', zipCode: '' };
+const EMPTY_FORM: PropertyForm = {
+  name: '', description: '', street: '', city: '', state: '', country: '', zipCode: '', latitude: '0', longitude: '0',
+};
+
+function propertyToForm(p: Property): PropertyForm {
+  return {
+    name: p.name,
+    description: p.description ?? '',
+    street: p.address?.street ?? '',
+    city: p.address?.city ?? p.city ?? '',
+    state: p.address?.state ?? '',
+    country: p.address?.country ?? p.country ?? '',
+    zipCode: p.address?.zipCode ?? '',
+    latitude: String(p.address?.latitude ?? 0),
+    longitude: String(p.address?.longitude ?? 0),
+  };
+}
 
 export function PropertiesPage() {
   const [properties, setProperties] = useState<Property[]>([]);
@@ -90,7 +108,9 @@ export function PropertiesPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editProperty, setEditProperty] = useState<Property | null>(null);
-  const [form, setForm] = useState<AddPropertyForm>(EMPTY_FORM);
+  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+  const [form, setForm] = useState<PropertyForm>(EMPTY_FORM);
+  const [editForm, setEditForm] = useState<PropertyForm>(EMPTY_FORM);
   const toast = useToast();
   const { tenantId } = useAuthStore();
 
@@ -110,25 +130,95 @@ export function PropertiesPage() {
 
   const handleAdd = async () => {
     if (!form.name.trim()) { toast.error('Validation', 'Property name is required'); return; }
+    if (!form.description.trim()) { toast.error('Validation', 'Description is required'); return; }
+    if (!form.street.trim() || !form.city.trim() || !form.state.trim() || !form.country.trim() || !form.zipCode.trim()) {
+      toast.error('Validation', 'All address fields are required'); return;
+    }
     setIsSubmitting(true);
     try {
-      const created = await propertyService.create({
+      await propertyService.create({
         name: form.name,
         description: form.description,
         image: 'https://placehold.co/600x400',
         tenantId: tenantId ?? 1,
-        address: { street: form.street, city: form.city, state: form.state, country: form.country, zipCode: form.zipCode },
+        address: {
+          street: form.street,
+          city: form.city,
+          state: form.state,
+          country: form.country,
+          zipCode: form.zipCode,
+          latitude: Number(form.latitude) || 0,
+          longitude: Number(form.longitude) || 0,
+        },
       });
-      setProperties((prev) => [created, ...prev]);
       toast.success('Property added', `${form.name} has been created`);
       setIsAddOpen(false);
       setForm(EMPTY_FORM);
+      await loadProperties();
     } catch {
       toast.error('Failed to create', 'Could not add property');
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const openEdit = (p: Property) => {
+    setEditProperty(p);
+    setEditForm(propertyToForm(p));
+  };
+
+  const handleUpdate = async () => {
+    if (!editProperty) return;
+    if (!editForm.name.trim()) { toast.error('Validation', 'Property name is required'); return; }
+    if (!editForm.description.trim()) { toast.error('Validation', 'Description is required'); return; }
+    setIsEditSubmitting(true);
+    try {
+      await propertyService.update({
+        id: editProperty.id,
+        name: editForm.name,
+        description: editForm.description,
+        image: editProperty.image ?? 'https://placehold.co/600x400',
+        address: {
+          street: editForm.street,
+          city: editForm.city,
+          state: editForm.state,
+          country: editForm.country,
+          zipCode: editForm.zipCode,
+          latitude: Number(editForm.latitude) || 0,
+          longitude: Number(editForm.longitude) || 0,
+        },
+      });
+      toast.success('Property updated', `${editForm.name} has been updated`);
+      setEditProperty(null);
+      await loadProperties();
+    } catch {
+      toast.error('Failed to update', 'Could not update property');
+    } finally {
+      setIsEditSubmitting(false);
+    }
+  };
+
+  const f = (field: keyof PropertyForm, value: string) => setForm((prev) => ({ ...prev, [field]: value }));
+  const ef = (field: keyof PropertyForm, value: string) => setEditForm((prev) => ({ ...prev, [field]: value }));
+
+  const FormFields = ({ vals, onChange }: { vals: PropertyForm; onChange: (k: keyof PropertyForm, v: string) => void }) => (
+    <div className="space-y-4">
+      <Input label="Property Name" required placeholder="e.g. Grand Hotel Downtown" value={vals.name} onChange={(e) => onChange('name', e.target.value)} />
+      <Input label="Description" required placeholder="Brief description of the property" value={vals.description} onChange={(e) => onChange('description', e.target.value)} />
+      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide pt-1">Address</p>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="col-span-2">
+          <Input label="Street" required placeholder="123 Main Street" value={vals.street} onChange={(e) => onChange('street', e.target.value)} />
+        </div>
+        <Input label="City" required placeholder="City" value={vals.city} onChange={(e) => onChange('city', e.target.value)} />
+        <Input label="State / Province" required placeholder="State" value={vals.state} onChange={(e) => onChange('state', e.target.value)} />
+        <Input label="Country" required placeholder="Country" value={vals.country} onChange={(e) => onChange('country', e.target.value)} />
+        <Input label="Zip / Postal Code" required placeholder="100001" value={vals.zipCode} onChange={(e) => onChange('zipCode', e.target.value)} />
+        <Input label="Latitude" placeholder="0.000000" value={vals.latitude} onChange={(e) => onChange('latitude', e.target.value)} />
+        <Input label="Longitude" placeholder="0.000000" value={vals.longitude} onChange={(e) => onChange('longitude', e.target.value)} />
+      </div>
+    </div>
+  );
 
   return (
     <div className="page-container">
@@ -181,7 +271,7 @@ export function PropertiesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {properties.map((p) => (
-            <PropertyCard key={p.id} property={p} onEdit={setEditProperty} />
+            <PropertyCard key={p.id} property={p} onEdit={openEdit} />
           ))}
         </div>
       )}
@@ -195,39 +285,27 @@ export function PropertiesPage() {
         footer={
           <>
             <Button variant="outline" onClick={() => { setIsAddOpen(false); setForm(EMPTY_FORM); }}>Cancel</Button>
-            <Button onClick={handleAdd} isLoading={isSubmitting}>Save Property</Button>
+            <Button onClick={handleAdd} isLoading={isSubmitting} leftIcon={<Plus className="h-4 w-4" />}>Save Property</Button>
           </>
         }
       >
-        <div className="space-y-4">
-          <Input label="Property Name" required placeholder="e.g. Grand Hotel Downtown" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
-          <Input label="Description" placeholder="Brief description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Street" placeholder="123 Main Street" value={form.street} onChange={(e) => setForm((f) => ({ ...f, street: e.target.value }))} />
-            <Input label="City" placeholder="City" value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} />
-            <Input label="State" placeholder="State" value={form.state} onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))} />
-            <Input label="Country" placeholder="Country" value={form.country} onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))} />
-            <Input label="Zip Code" placeholder="100001" value={form.zipCode} onChange={(e) => setForm((f) => ({ ...f, zipCode: e.target.value }))} />
-          </div>
-        </div>
+        <FormFields vals={form} onChange={f} />
       </Modal>
 
-      {/* Edit Modal (view-only for now) */}
+      {/* Edit Modal */}
       <Modal
         isOpen={!!editProperty}
         onClose={() => setEditProperty(null)}
-        title="Property Details"
-        size="md"
-        footer={<Button variant="outline" onClick={() => setEditProperty(null)}>Close</Button>}
+        title="Edit Property"
+        size="lg"
+        footer={
+          <>
+            <Button variant="outline" leftIcon={<X className="h-4 w-4" />} onClick={() => setEditProperty(null)}>Cancel</Button>
+            <Button onClick={handleUpdate} isLoading={isEditSubmitting} leftIcon={<Save className="h-4 w-4" />}>Save Changes</Button>
+          </>
+        }
       >
-        {editProperty && (
-          <div className="space-y-3 text-sm">
-            <div><span className="font-medium text-slate-700 dark:text-slate-300">Name:</span> <span className="text-slate-600 dark:text-slate-400">{editProperty.name}</span></div>
-            {editProperty.description && <div><span className="font-medium text-slate-700 dark:text-slate-300">Description:</span> <span className="text-slate-600 dark:text-slate-400">{editProperty.description}</span></div>}
-            {editProperty.city && <div><span className="font-medium text-slate-700 dark:text-slate-300">City:</span> <span className="text-slate-600 dark:text-slate-400">{editProperty.city}</span></div>}
-            {editProperty.country && <div><span className="font-medium text-slate-700 dark:text-slate-300">Country:</span> <span className="text-slate-600 dark:text-slate-400">{editProperty.country}</span></div>}
-          </div>
-        )}
+        {editProperty && <FormFields vals={editForm} onChange={ef} />}
       </Modal>
     </div>
   );

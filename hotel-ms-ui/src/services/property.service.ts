@@ -56,23 +56,31 @@ export const propertyService = {
    * POST /api/v1/Properties
    * Body: { name, description, image, tenantId, address: { street, city, state, zipCode, country } }
    */
+  /**
+   * POST /api/v1/Properties
+   * Backend returns BaseResponse (no data). Caller must reload after success.
+   */
   async create(request: {
     name: string;
     description: string;
     image: string;
     tenantId: number;
-    address: { street?: string; city?: string; state?: string; zipCode?: string; country?: string };
-  }): Promise<Property> {
-    const response = await api.post<ApiResponse<unknown>>('/api/v1/Properties', request);
-    return mapProperty(response.data.data as Parameters<typeof mapProperty>[0]);
+    address: { street?: string; city?: string; state?: string; zipCode?: string; country?: string; latitude?: number; longitude?: number };
+  }): Promise<void> {
+    await api.post('/api/v1/Properties', request);
   },
 
   /**
    * PUT /api/v1/Properties
-   * Body: UpdatePropertyRequestDTO (includes id)
+   * Backend returns BaseResponse (no data). Caller must reload after success.
    */
-  async update(request: { id: number; name?: string; description?: string; image?: string; address?: object }): Promise<Property> {
-    const response = await api.put<ApiResponse<unknown>>('/api/v1/Properties', request);
-    return mapProperty(response.data.data as Parameters<typeof mapProperty>[0]);
+  async update(request: {
+    id: number;
+    name: string;
+    description: string;
+    image: string;
+    address: { street?: string; city?: string; state?: string; zipCode?: string; country?: string; latitude?: number; longitude?: number };
+  }): Promise<void> {
+    await api.put('/api/v1/Properties', request);
   },
 };

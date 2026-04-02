@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Clock, CheckCircle, AlertCircle, Loader2, BedDouble, User, RefreshCw } from 'lucide-react';
+import { Plus, Clock, CheckCircle, AlertCircle, Loader2, BedDouble, User, RefreshCw, SkipForward } from 'lucide-react';
 import { Card, CardHeader, CardTitle } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -8,7 +8,8 @@ import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { useToast, useAuthStore } from '../lib/store';
 import { housekeepingService } from '../services/housekeeping.service';
-import type { HousekeepingTask, HousekeepingTaskTrigger } from '../types';
+import { roomService } from '../services/room.service';
+import type { HousekeepingTask, HousekeepingTaskTrigger, Room } from '../types';
 import { cn, formatDate } from '../lib/utils';
 
 // Columns match backend HousekeepingTaskState enum exactly
@@ -19,10 +20,10 @@ const COLUMNS: { key: HousekeepingTask['status']; label: string; icon: React.Rea
   { key: 'Skipped',    label: 'Skipped',     icon: <AlertCircle className="h-4 w-4" />, color: 'text-slate-400' },
 ];
 
-// Map status → next trigger (matches backend HousekeepingTaskTrigger enum)
-const NEXT_TRIGGER: Partial<Record<HousekeepingTask['status'], HousekeepingTaskTrigger>> = {
-  Pending: 'Start',
-  InProgress: 'Complete',
+// Which triggers are valid per status
+const STATUS_TRIGGERS: Partial<Record<HousekeepingTask['status'], HousekeepingTaskTrigger[]>> = {
+  Pending:    ['Start', 'Skip'],
+  InProgress: ['Complete', 'Skip'],
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -43,13 +44,20 @@ const PRIORITY_BAR: Record<string, string> = {
 
 interface TaskCardProps {
   task: HousekeepingTask;
-  onMove: (taskId: number, trigger: HousekeepingTaskTrigger) => void;
+  onMove: (taskId: number, trigger: HousekeepingTaskTrigger) => Promise<void>;
 }
 
 function TaskCard({ task, onMove }: TaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const trigger = NEXT_TRIGGER[task.status];
+  const [busy, setBusy] = useState<HousekeepingTaskTrigger | null>(null);
+  const triggers = STATUS_TRIGGERS[task.status] ?? [];
   const priority = task.priority ?? 'Normal';
+
+  const fire = async (trigger: HousekeepingTaskTrigger) => {
+    setBusy(trigger);
+    await onMove(task.id, trigger);
+    setBusy(null);
+  };
 
   return (
     <div
@@ -99,18 +107,28 @@ function TaskCard({ task, onMove }: TaskCardProps) {
           </div>
         )}
 
-        {trigger && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onMove(task.id, trigger); }}
-            className={cn(
-              'w-full mt-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
-              trigger === 'Start'
-                ? 'bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                : 'bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
-            )}
-          >
-            {trigger === 'Start' ? 'Start Task' : 'Mark Complete'}
-          </button>
+        {triggers.length > 0 && (
+          <div className="flex gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
+            {triggers.map((trigger) => (
+              <button
+                key={trigger}
+                disabled={busy !== null}
+                onClick={() => fire(trigger)}
+                className={cn(
+                  'flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1',
+                  trigger === 'Start'
+                    ? 'bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                    : trigger === 'Complete'
+                    ? 'bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
+                    : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400',
+                  busy !== null && 'opacity-50 cursor-not-allowed'
+                )}
+              >
+                {trigger === 'Skip' && <SkipForward className="h-3 w-3" />}
+                {busy === trigger ? '…' : trigger === 'Start' ? 'Start' : trigger === 'Complete' ? 'Complete' : 'Skip'}
+              </button>
+            ))}
+          </div>
         )}
       </div>
     </div>
@@ -119,39 +137,45 @@ function TaskCard({ task, onMove }: TaskCardProps) {
 
 export function HousekeepingPage() {
   const [tasks, setTasks] = useState<HousekeepingTask[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [newTask, setNewTask] = useState({ roomId: '', taskType: 'Cleaning', priority: 'Normal', notes: '', scheduledAt: '' });
+  const [newTask, setNewTask] = useState({
+    roomId: '', taskType: 'Cleaning', priority: 'Normal', notes: '', scheduledAt: '',
+  });
   const toast = useToast();
   const { tenantId } = useAuthStore();
 
-  const loadTasks = useCallback(async () => {
+  const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await housekeepingService.getTasks({ tenantId });
-      setTasks(data);
-    } catch {
-      toast.error('Failed to load tasks', 'Could not fetch housekeeping tasks from server');
+      const [taskData, roomData] = await Promise.allSettled([
+        housekeepingService.getTasks({ tenantId: tenantId ?? undefined }),
+        roomService.getAll(),
+      ]);
+      if (taskData.status === 'fulfilled') setTasks(taskData.value);
+      else toast.error('Failed to load tasks', 'Could not fetch housekeeping tasks');
+      if (roomData.status === 'fulfilled') setRooms(roomData.value);
     } finally {
       setIsLoading(false);
     }
   }, [tenantId, toast]);
 
-  useEffect(() => { loadTasks(); }, [loadTasks]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   const moveTask = async (taskId: number, trigger: HousekeepingTaskTrigger) => {
     try {
       const updated = await housekeepingService.changeState(taskId, trigger);
       setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
-      toast.success('Task updated', `Task moved to ${updated.status}`);
+      toast.success('Task updated', `Task ${trigger === 'Complete' ? 'completed' : trigger === 'Skip' ? 'skipped' : 'started'}`);
     } catch {
       toast.error('Update failed', 'Could not update task state');
     }
   };
 
   const handleAddTask = async () => {
-    if (!newTask.roomId) { toast.error('Validation', 'Room ID is required'); return; }
+    if (!newTask.roomId) { toast.error('Validation', 'Please select a room'); return; }
     setIsSubmitting(true);
     try {
       const created = await housekeepingService.create({
@@ -160,7 +184,7 @@ export function HousekeepingPage() {
         priority: newTask.priority,
         notes: newTask.notes || undefined,
         scheduledAt: newTask.scheduledAt || undefined,
-        tenantId,
+        tenantId: tenantId ?? undefined,
       });
       setTasks((prev) => [created, ...prev]);
       toast.success('Task created', 'New housekeeping task added');
@@ -182,6 +206,11 @@ export function HousekeepingPage() {
     { label: 'Total Tasks', count: tasks.length,                         color: 'text-slate-700 dark:text-slate-300' },
   ];
 
+  const roomOptions = [
+    { value: '', label: 'Select a room…' },
+    ...rooms.map((r) => ({ value: String(r.id), label: `Room ${r.roomNumber ?? r.number} — ${r.type ?? ''} (${r.roomState})` })),
+  ];
+
   return (
     <div className="page-container">
       <div className="page-header flex items-start justify-between flex-wrap gap-4">
@@ -190,7 +219,7 @@ export function HousekeepingPage() {
           <p className="page-subtitle">Manage room cleaning and maintenance tasks</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" leftIcon={<RefreshCw className="h-4 w-4" />} onClick={loadTasks} isLoading={isLoading}>
+          <Button variant="outline" leftIcon={<RefreshCw className="h-4 w-4" />} onClick={loadData} isLoading={isLoading}>
             Refresh
           </Button>
           <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => setIsAddOpen(true)}>
@@ -270,14 +299,16 @@ export function HousekeepingPage() {
         }
       >
         <div className="space-y-4">
-          <Input
-            label="Room ID"
+          <Select
+            label="Room"
             required
-            placeholder="Enter room ID (e.g. 5)"
-            type="number"
             value={newTask.roomId}
             onChange={(e) => setNewTask((p) => ({ ...p, roomId: e.target.value }))}
+            options={roomOptions}
           />
+          {rooms.length === 0 && (
+            <p className="text-xs text-amber-500">No rooms loaded. Make sure rooms exist and the API is reachable.</p>
+          )}
           <Select
             label="Task Type"
             value={newTask.taskType}
@@ -303,7 +334,7 @@ export function HousekeepingPage() {
             ]}
           />
           <Input
-            label="Scheduled Date"
+            label="Scheduled Date & Time"
             type="datetime-local"
             value={newTask.scheduledAt}
             onChange={(e) => setNewTask((p) => ({ ...p, scheduledAt: e.target.value }))}

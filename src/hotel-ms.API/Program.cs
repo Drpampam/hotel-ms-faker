@@ -201,7 +201,7 @@ app.ConfigureExceptionHandler();
 app.UseCors(x => x
     .AllowAnyMethod()
     .AllowAnyHeader()
-    .WithOrigins(allowedOrigins.Length > 0 ? allowedOrigins : new[] { "http://localhost:3000", "http://localhost:4200", "http://localhost:5173" })
+    .SetIsOriginAllowed(_ => true)
     .AllowCredentials());
 var supportedCultures = new[] { new CultureInfo("en-GB"), new CultureInfo("en-US") };
 

@@ -172,6 +172,11 @@ namespace hotelier_core_app.Service.Implementation
             if (reservation.Status == ReservationState.Cancelled || reservation.Status == ReservationState.CheckedOut)
                 return BaseResponse<ReservationResponseDTO>.Failure(new ReservationResponseDTO(), ResponseMessages.ReservationNotCancellable, ResponseStatusCode.InvalidData);
 
+            // Once checked in, dates and room are locked — use admin override if correction needed
+            if (reservation.Status == ReservationState.CheckedIn &&
+                (request.CheckInDate.HasValue || request.CheckOutDate.HasValue || request.RoomId.HasValue))
+                return BaseResponse<ReservationResponseDTO>.Failure(new ReservationResponseDTO(), ResponseMessages.ReservationDatesLocked, ResponseStatusCode.InvalidData);
+
             var newCheckIn = request.CheckInDate ?? reservation.CheckInDate;
             var newCheckOut = request.CheckOutDate ?? reservation.CheckOutDate;
 
@@ -294,6 +299,9 @@ namespace hotelier_core_app.Service.Implementation
 
             if (reservation.Status != ReservationState.Confirmed)
                 return BaseResponse<ReservationResponseDTO>.Failure(new ReservationResponseDTO(), ResponseMessages.ReservationNotCheckInable, ResponseStatusCode.InvalidData);
+
+            if (DateTime.UtcNow.Date > reservation.CheckOutDate.Date)
+                return BaseResponse<ReservationResponseDTO>.Failure(new ReservationResponseDTO(), ResponseMessages.ReservationExpired, ResponseStatusCode.InvalidData);
 
             reservation.Status = ReservationState.CheckedIn;
             reservation.ModifiedBy = auditLog.PerformedBy;

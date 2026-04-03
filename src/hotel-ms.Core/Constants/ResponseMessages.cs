@@ -126,6 +126,8 @@
         public const string ReservationNotCancellable = "Only pending or confirmed reservations can be cancelled";
         public const string ReservationNotCheckInable = "Only confirmed reservations can be checked in";
         public const string ReservationNotCheckOutable = "Only checked-in reservations can be checked out";
+        public const string ReservationExpired = "Cannot check in: the reservation check-out date has already passed";
+        public const string ReservationDatesLocked = "Reservation dates and room cannot be changed after check-in";
 
         // Guest Management
         public const string GuestProfileNotFound = "Guest profile not found";

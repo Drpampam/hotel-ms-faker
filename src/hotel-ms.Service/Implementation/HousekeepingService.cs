@@ -77,6 +77,20 @@ namespace hotelier_core_app.Service.Implementation
             _auditLogCommandRepository.Add(auditLog);
             await _taskCommandRepository.SaveAsync();
 
+            // Block the room only if it is currently Available.
+            // Occupied rooms keep their state (guest is still in — task is queued for after checkout).
+            room.ConfigureStateMachine();
+            if (room.StateMachine != null)
+            {
+                var trigger = task.TaskType == "Maintenance" ? RoomTrigger.SetMaintenance : RoomTrigger.SetCleaning;
+                if (room.StateMachine.CanFire(trigger))
+                {
+                    room.StateMachine.Fire(trigger);
+                    room.IsAvailable = false;
+                    await _roomCommandRepository.UpdateAsync(room);
+                }
+            }
+
             var response = await BuildTaskResponse(task, room);
             return BaseResponse<HousekeepingTaskResponseDTO>.Success(response, ResponseMessages.HousekeepingTaskCreated, ResponseStatusCode.OperationSuccessful);
         }
@@ -140,15 +154,19 @@ namespace hotelier_core_app.Service.Implementation
 
             var room = await _roomQueryRepository.FindAsync(task.RoomId);
 
-            // If task completes a Cleaning, mark room Available again
-            if (trigger == HousekeepingTaskTrigger.Complete && task.TaskType == "Cleaning" && room != null)
+            // When task completes, release the room back to Available
+            if (trigger == HousekeepingTaskTrigger.Complete && room != null)
             {
                 room.ConfigureStateMachine();
-                if (room.StateMachine != null && room.StateMachine.CanFire(RoomTrigger.FinishCleaning))
+                if (room.StateMachine != null)
                 {
-                    room.StateMachine.Fire(RoomTrigger.FinishCleaning);
-                    room.IsAvailable = true;
-                    await _roomCommandRepository.UpdateAsync(room);
+                    var finishTrigger = task.TaskType == "Maintenance" ? RoomTrigger.FinishMaintenance : RoomTrigger.FinishCleaning;
+                    if (room.StateMachine.CanFire(finishTrigger))
+                    {
+                        room.StateMachine.Fire(finishTrigger);
+                        room.IsAvailable = true;
+                        await _roomCommandRepository.UpdateAsync(room);
+                    }
                 }
             }
 

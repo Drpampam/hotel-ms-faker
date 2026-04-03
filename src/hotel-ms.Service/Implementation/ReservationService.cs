@@ -383,6 +383,28 @@ namespace hotelier_core_app.Service.Implementation
             return BaseResponse<ReservationResponseDTO>.Success(response, ResponseMessages.ReservationCheckedOut, ResponseStatusCode.CheckedOut);
         }
 
+        public async Task<BaseResponse<ReservationResponseDTO>> OverrideStatusAsync(long reservationId, string status, AuditLog auditLog)
+        {
+            if (!Enum.TryParse<ReservationState>(status, ignoreCase: true, out var newStatus))
+                return BaseResponse<ReservationResponseDTO>.Failure(new ReservationResponseDTO(), $"Invalid status '{status}'", ResponseStatusCode.InvalidData);
+
+            var reservation = await _reservationQueryRepository.FindAsync(reservationId);
+            if (reservation == null)
+                return BaseResponse<ReservationResponseDTO>.Failure(new ReservationResponseDTO(), ResponseMessages.ReservationNotFound, ResponseStatusCode.ReservationNotFound);
+
+            reservation.Status = newStatus;
+            reservation.ModifiedBy = auditLog.PerformedBy;
+            reservation.LastModifiedDate = DateTime.UtcNow;
+
+            await _reservationCommandRepository.UpdateAsync(reservation);
+            _auditLogCommandRepository.Add(auditLog);
+
+            var room = await _roomQueryRepository.FindAsync(reservation.RoomId);
+            var guest = await _context.GuestProfiles.FindAsync(reservation.GuestId);
+            var response = BuildReservationResponse(reservation, room, guest);
+            return BaseResponse<ReservationResponseDTO>.Success(response, ResponseMessages.OperationSuccessful, ResponseStatusCode.OperationSuccessful);
+        }
+
         private ReservationResponseDTO BuildReservationResponse(Reservation reservation, Room? room, GuestProfile? guest)
         {
             int nights = (int)(reservation.CheckOutDate.Date - reservation.CheckInDate.Date).TotalDays;

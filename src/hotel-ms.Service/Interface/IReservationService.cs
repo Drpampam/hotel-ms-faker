@@ -13,5 +13,6 @@ namespace hotelier_core_app.Service.Interface
         Task<BaseResponse<ReservationResponseDTO>> CancelReservationAsync(long reservationId, AuditLog auditLog);
         Task<BaseResponse<ReservationResponseDTO>> CheckInAsync(long reservationId, AuditLog auditLog);
         Task<BaseResponse<ReservationResponseDTO>> CheckOutAsync(long reservationId, AuditLog auditLog);
+        Task<BaseResponse<ReservationResponseDTO>> OverrideStatusAsync(long reservationId, string status, AuditLog auditLog);
     }
 }

@@ -96,6 +96,16 @@ namespace hotelier_core_app.API.Controllers
             return Ok(result);
         }
 
+        [HttpPut("{id}/override-status")]
+        [Authorize(Roles = "Admin,SuperAdmin,Developer")]
+        [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<ReservationResponseDTO>))]
+        public async Task<IActionResult> OverrideStatus(long id, [FromBody] string status)
+        {
+            var auditLog = BuildAuditLog(UserAction.OverrideReservationStatus, id.ToString());
+            var result = await _reservationService.OverrideStatusAsync(id, status, auditLog);
+            return Ok(result);
+        }
+
         private AuditLog BuildAuditLog(string action, string performedAgainst) => new AuditLog
         {
             Action = action,

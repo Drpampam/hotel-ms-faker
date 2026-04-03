@@ -103,19 +103,12 @@ export const reservationService = {
   },
 
   /**
-   * Legacy updateStatus used by pages — maps to the appropriate action endpoint
+   * PUT /api/v1/reservations/{id}/override-status — admin override, bypasses state machine
    */
   async updateStatus(id: number, status: string): Promise<Reservation> {
-    switch (status) {
-      case 'CheckedIn':
-        return reservationService.checkIn(id);
-      case 'CheckedOut':
-        return reservationService.checkOut(id);
-      case 'Cancelled':
-        return reservationService.cancel(id);
-      default:
-        // For Confirmed/Pending, use the update endpoint
-        return reservationService.update({ id, status });
-    }
+    const response = await api.put<ApiResponse<unknown>>(`/api/v1/reservations/${id}/override-status`, JSON.stringify(status), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return mapReservation(response.data.data as Parameters<typeof mapReservation>[0]);
   },
 };

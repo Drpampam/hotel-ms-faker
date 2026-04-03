@@ -56,6 +56,7 @@
         public const string CancelReservation = "Cancel Reservation";
         public const string CheckIn = "Check In";
         public const string CheckOut = "Check Out";
+        public const string OverrideReservationStatus = "Override Reservation Status";
 
         // Guest Management
         public const string CreateGuestProfile = "Create Guest Profile";

@@ -47,8 +47,10 @@ builder.Services.AddScoped<ITenantProvider, TenantProvider>();
 
 builder.Services.AddControllers()
     .AddNewtonsoftJson(option =>
-                option.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore
-            )
+    {
+        option.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore;
+        option.SerializerSettings.Converters.Add(new Newtonsoft.Json.Converters.StringEnumConverter());
+    })
     .AddJsonOptions(option =>
     {
         option.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());

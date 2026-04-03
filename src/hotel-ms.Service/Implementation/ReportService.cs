@@ -308,7 +308,7 @@ namespace hotelier_core_app.Service.Implementation
 
             var srSql = $@"
                 SELECT COUNT(*) FROM ""{schema}"".""ServiceRequest"" s
-                WHERE s.""IsDeleted"" = false AND s.""State"" = 0";
+                WHERE s.""IsDeleted"" = false AND s.""ServiceRequestState"" = 0";
 
             var hkSql = $@"
                 SELECT COUNT(*) FROM ""{schema}"".""HousekeepingTask"" h

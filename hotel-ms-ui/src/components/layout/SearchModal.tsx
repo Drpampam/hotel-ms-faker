@@ -122,7 +122,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
       .map((g) => ({
         type: 'guest' as const,
         id: g.id,
-        title: g.fullName ?? `${g.firstName} ${g.lastName}`.trim() || '—',
+        title: g.fullName ?? (`${g.firstName} ${g.lastName}`.trim() || '—'),
         meta: [g.email, g.phoneNumber].filter(Boolean).join(' · ') || 'No contact info',
         badge: g.loyaltyTier,
         badgeColor: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',

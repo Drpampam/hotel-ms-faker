@@ -15,6 +15,7 @@ const GuestsPage = lazy(() => import('./pages/GuestsPage'));
 const UsersPage = lazy(() => import('./pages/UsersPage'));
 const PropertiesPage = lazy(() => import('./pages/PropertiesPage'));
 const HousekeepingPage = lazy(() => import('./pages/HousekeepingPage'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
 function App() {
@@ -86,6 +87,14 @@ function App() {
             element={
               <Suspense fallback={<PageLoader />}>
                 <HousekeepingPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/reports"
+            element={
+              <Suspense fallback={<PageLoader />}>
+                <ReportsPage />
               </Suspense>
             }
           />

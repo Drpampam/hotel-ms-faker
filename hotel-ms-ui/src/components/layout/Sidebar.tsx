@@ -7,6 +7,7 @@ import {
   UserCircle,
   Building2,
   Sparkles,
+  BarChart3,
   Settings,
   LogOut,
   ChevronLeft,
@@ -27,6 +28,7 @@ const navItems = [
   { label: 'Housekeeping', path: '/housekeeping', icon: Sparkles },
   { label: 'Properties', path: '/properties', icon: Building2 },
   { label: 'Users', path: '/users', icon: Users },
+  { label: 'Reports', path: '/reports', icon: BarChart3 },
   { label: 'Settings', path: '/settings', icon: Settings },
 ];
 

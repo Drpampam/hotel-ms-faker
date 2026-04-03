@@ -184,7 +184,8 @@ namespace hotelier_core_app.Service.Implementation
             _auditLogCommandRepository.SwitchProvider(DBProvider.SQL_Dapper);
             await _auditLogCommandRepository.AddAsync(auditLog);
 
-            await SendEmailConfirmationAsync(newUser, model.Email);
+            // Fire-and-forget — do not block the response waiting for the email provider
+            _ = Task.Run(() => SendEmailConfirmationAsync(newUser, model.Email));
 
             return BaseResponse.Success(ResponseMessages.UserCreated, ResponseStatusCode.UserCreated);
         }
@@ -263,9 +264,19 @@ namespace hotelier_core_app.Service.Implementation
                 .Skip((model.PageNumber - 1) * model.PageSize)
                 .Take(model.PageSize)
                 .ToListAsync();
-            
-            var usersResponse = _mapper.Map<List<ApplicationUserDTO>>(users);
-            
+
+            // Populate roles for each user (Identity stores roles separately)
+            var usersResponse = new List<ApplicationUserDTO>();
+            foreach (var u in users)
+            {
+                var dto = _mapper.Map<ApplicationUserDTO>(u);
+                var roleNames = await _userManager.GetRolesAsync(u);
+                dto.UserRoles = roleNames
+                    .Select(name => new RoleDTO { Name = name })
+                    .ToList();
+                usersResponse.Add(dto);
+            }
+
             return PageBaseResponse<List<ApplicationUserDTO>>.Success(usersResponse, ResponseMessages.UsersRetrieved, totalUsers, ResponseStatusCode.UsersRetrieved);
         }
 

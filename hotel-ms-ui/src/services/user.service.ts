@@ -14,7 +14,7 @@ function mapUser(r: {
   const parts = (r.fullName ?? '').trim().split(/\s+/);
   const firstName = parts[0] ?? r.email ?? '';
   const lastName = parts.slice(1).join(' ') || '';
-  const primaryRole = r.userRoles?.[0]?.name ?? 'FrontDesk';
+  const primaryRole = r.userRoles?.[0]?.name ?? 'Admin';
 
   return {
     id: r.email ?? '',   // backend uses email as identifier

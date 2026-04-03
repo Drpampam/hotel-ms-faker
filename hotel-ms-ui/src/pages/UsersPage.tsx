@@ -15,11 +15,6 @@ import { useToast } from '../lib/store';
 import type { User, CreateUserRequest } from '../types';
 import { formatDate, getInitials, ROLE_COLORS } from '../lib/utils';
 
-const MOCK_USERS: User[] = [
-  { id: '1', email: 'admin@hotelms.com', firstName: 'Admin', lastName: 'User', role: 'Admin', tenantId: 1, createdAt: new Date(Date.now() - 90 * 86400000).toISOString(), isActive: true },
-  { id: '2', email: 'dev@hotelms.com', firstName: 'Tech', lastName: 'Developer', role: 'Developer', tenantId: 1, createdAt: new Date(Date.now() - 120 * 86400000).toISOString(), isActive: true },
-  { id: '3', email: 'john.guest@example.com', firstName: 'John', lastName: 'Guest', role: 'Guest', tenantId: 1, createdAt: new Date(Date.now() - 10 * 86400000).toISOString(), isActive: true },
-];
 
 const ROLE_OPTIONS: { value: string; label: string }[] = [
   { value: '', label: 'All Roles' },
@@ -69,13 +64,13 @@ export function UsersPage() {
     setIsLoading(true);
     try {
       const data = await userService.getAll();
-      setUsers(data.length > 0 ? data : MOCK_USERS);
-    } catch {
-      setUsers(MOCK_USERS);
+      setUsers(data);
+    } catch (err) {
+      toast.error('Failed to load users', err instanceof Error ? err.message : 'Could not fetch users');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     fetchUsers();

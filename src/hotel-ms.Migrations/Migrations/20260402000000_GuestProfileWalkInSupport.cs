@@ -1,10 +1,14 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using hotelier_core_app.Migrations;
 
 #nullable disable
 
 namespace hotelier_core_app.Migrations.Migrations
 {
-    /// <inheritdoc />
+    [DbContext(typeof(AppDbContext))]
+    [Migration("20260402000000_GuestProfileWalkInSupport")]
     public partial class GuestProfileWalkInSupport : Migration
     {
         /// <inheritdoc />

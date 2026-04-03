@@ -67,6 +67,17 @@ export const userService = {
   },
 
   /**
+   * PUT /api/v1/User/update-user — body: EditUserDetailRequestDTO
+   */
+  async update(user: { email: string; fullName: string; roles: string[] }): Promise<void> {
+    await api.put('/api/v1/User/update-user', {
+      email: user.email,
+      fullName: user.fullName,
+      roles: user.roles,
+    });
+  },
+
+  /**
    * PUT /api/v1/User/activate-user — body: { email }
    */
   async activate(email: string): Promise<void> {

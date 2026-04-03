@@ -151,6 +151,25 @@ namespace hotelier_core_app.API.Controllers
         }
         
         
+        [HttpPut("update-user")]
+        [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse))]
+        [ProducesResponseType((int)HttpStatusCode.BadRequest, Type = typeof(ValidationResultModel))]
+        public async Task<IActionResult> UpdateUser(EditUserDetailRequestDTO model)
+        {
+            var auditLog = new AuditLog
+            {
+                Action = UserAction.EditUser,
+                DatePerformed = DateTime.UtcNow,
+                PerformedBy = _tokenHelper.GetUserFullName(Request),
+                PerformerEmail = _tokenHelper.GetUserEmail(Request),
+                PerformedAgainst = model.Email,
+                IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",
+                MacAddress = _tokenHelper.GetMacAddress(Request)
+            };
+            var response = await _userService.UpdateUserDetail(model, auditLog);
+            return Ok(response);
+        }
+
         [HttpPut("reassign-role")]
         [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse))]
         [ProducesResponseType((int)HttpStatusCode.InternalServerError, Type = typeof(BaseResponse))]

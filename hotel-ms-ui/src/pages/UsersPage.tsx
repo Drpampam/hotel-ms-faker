@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Search, Plus, UserCog, Shield, X, Eye, EyeOff } from 'lucide-react';
+import { Search, Plus, UserCog, Shield, X, Eye, EyeOff, Save, Edit } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -38,6 +38,13 @@ const createUserSchema = z.object({
 
 type CreateUserFormData = z.infer<typeof createUserSchema>;
 
+const editUserSchema = z.object({
+  fullName: z.string().min(2, 'Full name is required'),
+  role: z.enum(['Admin', 'Guest', 'Developer']),
+});
+
+type EditUserFormData = z.infer<typeof editUserSchema>;
+
 export function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,7 +52,9 @@ export function UsersPage() {
   const [roleFilter, setRoleFilter] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [viewUser, setViewUser] = useState<User | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const toast = useToast();
@@ -59,6 +68,8 @@ export function UsersPage() {
     resolver: zodResolver(createUserSchema),
     defaultValues: { role: 'Admin' },
   });
+
+  const editForm = useForm<EditUserFormData>({ resolver: zodResolver(editUserSchema) });
 
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
@@ -107,6 +118,39 @@ export function UsersPage() {
       setIsSubmitting(false);
     }
   };
+
+  const openView = (u: User) => {
+    setViewUser(u);
+    setIsEditing(false);
+    editForm.reset({
+      fullName: u.fullName ?? `${u.firstName} ${u.lastName}`.trim(),
+      role: (u.role === 'Admin' || u.role === 'Guest' || u.role === 'Developer') ? u.role : 'Admin',
+    });
+  };
+
+  const onEditSubmit = editForm.handleSubmit(async (data) => {
+    if (!viewUser) return;
+    setIsEditSubmitting(true);
+    try {
+      await userService.update({
+        email: viewUser.email,
+        fullName: data.fullName,
+        roles: [data.role],
+      });
+      const updatedUser = { ...viewUser, fullName: data.fullName, role: data.role as User['role'] };
+      const nameParts = data.fullName.trim().split(/\s+/);
+      updatedUser.firstName = nameParts[0] ?? '';
+      updatedUser.lastName = nameParts.slice(1).join(' ') || '';
+      setUsers((prev) => prev.map((u) => (u.email === viewUser.email ? updatedUser : u)));
+      setViewUser(updatedUser);
+      setIsEditing(false);
+      toast.success('User updated', `${data.fullName} has been updated`);
+    } catch (err) {
+      toast.error('Update failed', err instanceof Error ? err.message : 'Could not update user');
+    } finally {
+      setIsEditSubmitting(false);
+    }
+  });
 
   const roleBadge = (role: string) => {
     const colorClass = ROLE_COLORS[role] ?? 'bg-slate-100 text-slate-700';
@@ -167,7 +211,7 @@ export function UsersPage() {
           leftIcon={<UserCog className="h-3.5 w-3.5" />}
           onClick={(e) => {
             e.stopPropagation();
-            setViewUser(u);
+            openView(u);
           }}
         >
           Manage
@@ -374,14 +418,27 @@ export function UsersPage() {
         </form>
       </Modal>
 
-      {/* View User Modal */}
+      {/* View / Edit User Modal */}
       <Modal
         isOpen={!!viewUser}
-        onClose={() => setViewUser(null)}
-        title="User Details"
+        onClose={() => { setViewUser(null); setIsEditing(false); }}
+        title={isEditing ? 'Edit User' : 'User Details'}
         size="sm"
+        footer={
+          isEditing ? (
+            <>
+              <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isEditSubmitting}>Cancel</Button>
+              <Button isLoading={isEditSubmitting} leftIcon={<Save className="h-4 w-4" />} onClick={onEditSubmit}>Save Changes</Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => { setViewUser(null); }}>Close</Button>
+              <Button leftIcon={<Edit className="h-4 w-4" />} onClick={() => setIsEditing(true)}>Edit</Button>
+            </>
+          )
+        }
       >
-        {viewUser && (
+        {viewUser && !isEditing && (
           <div className="space-y-4">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center">
@@ -415,6 +472,28 @@ export function UsersPage() {
               ))}
             </div>
           </div>
+        )}
+
+        {viewUser && isEditing && (
+          <form className="space-y-4" onSubmit={onEditSubmit}>
+            <Input
+              label="Full Name"
+              required
+              placeholder="Alice Thompson"
+              {...editForm.register('fullName')}
+              error={editForm.formState.errors.fullName?.message}
+            />
+            <Select
+              label="Role"
+              required
+              options={ROLE_OPTIONS.filter((r) => r.value).map((r) => ({ value: r.value, label: r.label }))}
+              {...editForm.register('role')}
+              error={editForm.formState.errors.role?.message}
+            />
+            <div className="p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg text-sm text-slate-500 dark:text-slate-400">
+              Email: <span className="font-medium text-slate-700 dark:text-slate-300">{viewUser.email}</span>
+            </div>
+          </form>
         )}
       </Modal>
     </div>

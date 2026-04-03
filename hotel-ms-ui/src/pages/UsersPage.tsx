@@ -12,22 +12,18 @@ import { Card } from '../components/ui/Card';
 import { Table } from '../components/ui/Table';
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../lib/store';
-import type { User, UserRole, CreateUserRequest } from '../types';
+import type { User, CreateUserRequest } from '../types';
 import { formatDate, getInitials, ROLE_COLORS } from '../lib/utils';
 
 const MOCK_USERS: User[] = [
   { id: '1', email: 'admin@hotelms.com', firstName: 'Admin', lastName: 'User', role: 'Admin', tenantId: 1, createdAt: new Date(Date.now() - 90 * 86400000).toISOString(), isActive: true },
-  { id: '2', email: 'frontdesk@hotelms.com', firstName: 'Alice', lastName: 'Thompson', role: 'FrontDesk', tenantId: 1, createdAt: new Date(Date.now() - 60 * 86400000).toISOString(), isActive: true },
-  { id: '3', email: 'housekeeping@hotelms.com', firstName: 'Maria', lastName: 'Garcia', role: 'Housekeeping', tenantId: 1, createdAt: new Date(Date.now() - 30 * 86400000).toISOString(), isActive: true },
-  { id: '4', email: 'dev@hotelms.com', firstName: 'Tech', lastName: 'Developer', role: 'Developer', tenantId: 1, createdAt: new Date(Date.now() - 120 * 86400000).toISOString(), isActive: true },
-  { id: '5', email: 'john.guest@example.com', firstName: 'John', lastName: 'Guest', role: 'Guest', tenantId: 1, createdAt: new Date(Date.now() - 10 * 86400000).toISOString(), isActive: true },
+  { id: '2', email: 'dev@hotelms.com', firstName: 'Tech', lastName: 'Developer', role: 'Developer', tenantId: 1, createdAt: new Date(Date.now() - 120 * 86400000).toISOString(), isActive: true },
+  { id: '3', email: 'john.guest@example.com', firstName: 'John', lastName: 'Guest', role: 'Guest', tenantId: 1, createdAt: new Date(Date.now() - 10 * 86400000).toISOString(), isActive: true },
 ];
 
 const ROLE_OPTIONS: { value: string; label: string }[] = [
   { value: '', label: 'All Roles' },
   { value: 'Admin', label: 'Admin' },
-  { value: 'FrontDesk', label: 'Front Desk' },
-  { value: 'Housekeeping', label: 'Housekeeping' },
   { value: 'Guest', label: 'Guest' },
   { value: 'Developer', label: 'Developer' },
 ];
@@ -38,7 +34,7 @@ const createUserSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string(),
-  role: z.enum(['Admin', 'FrontDesk', 'Housekeeping', 'Guest', 'Developer']),
+  role: z.enum(['Admin', 'Guest', 'Developer']),
   phoneNumber: z.string().optional(),
 }).refine((d) => d.password === d.confirmPassword, {
   message: "Passwords don't match",
@@ -66,7 +62,7 @@ export function UsersPage() {
     formState: { errors },
   } = useForm<CreateUserFormData>({
     resolver: zodResolver(createUserSchema),
-    defaultValues: { role: 'FrontDesk' },
+    defaultValues: { role: 'Admin' },
   });
 
   const fetchUsers = useCallback(async () => {
@@ -102,7 +98,7 @@ export function UsersPage() {
         fullName: `${data.firstName} ${data.lastName}`.trim(),
         email: data.email,
         password: data.password,
-        role: data.role as UserRole,
+        role: data.role,
         phoneNumber: data.phoneNumber ?? '',
       };
       await userService.create(payload);
@@ -110,8 +106,8 @@ export function UsersPage() {
       setIsCreateOpen(false);
       reset();
       await fetchUsers();
-    } catch {
-      toast.error('Failed to create user', 'Please check the details and try again');
+    } catch (err) {
+      toast.error('Failed to create user', err instanceof Error ? err.message : 'Please check the details and try again');
     } finally {
       setIsSubmitting(false);
     }

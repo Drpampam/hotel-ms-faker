@@ -169,8 +169,8 @@ export function HousekeepingPage() {
       const updated = await housekeepingService.changeState(taskId, trigger);
       setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
       toast.success('Task updated', `Task ${trigger === 'Complete' ? 'completed' : trigger === 'Skip' ? 'skipped' : 'started'}`);
-    } catch {
-      toast.error('Update failed', 'Could not update task state');
+    } catch (err) {
+      toast.error('Update failed', err instanceof Error ? err.message : 'Could not update task state');
     }
   };
 
@@ -190,8 +190,8 @@ export function HousekeepingPage() {
       toast.success('Task created', 'New housekeeping task added');
       setIsAddOpen(false);
       setNewTask({ roomId: '', taskType: 'Cleaning', priority: 'Normal', notes: '', scheduledAt: '' });
-    } catch {
-      toast.error('Failed to create task', 'Could not create housekeeping task');
+    } catch (err) {
+      toast.error('Failed to create task', err instanceof Error ? err.message : 'Could not create housekeeping task');
     } finally {
       setIsSubmitting(false);
     }

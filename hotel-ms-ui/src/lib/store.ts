@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { useMemo } from 'react';
 import type { AuthUser, Theme } from '../types';
 
 // Auth Store
@@ -141,11 +142,11 @@ export const useNotificationStore = create<NotificationStore>()((set) => ({
   clearAll: () => set({ notifications: [] }),
 }));
 
-// Helper hook for notifications
+// Helper hook for notifications — returns a stable object so useCallback deps on `toast` don't cause infinite loops
 export function useToast() {
-  const { addNotification } = useNotificationStore();
+  const addNotification = useNotificationStore((s) => s.addNotification);
 
-  return {
+  return useMemo(() => ({
     success: (title: string, message?: string) =>
       addNotification({ type: 'success', title, message }),
     error: (title: string, message?: string) =>
@@ -154,5 +155,5 @@ export function useToast() {
       addNotification({ type: 'info', title, message }),
     warning: (title: string, message?: string) =>
       addNotification({ type: 'warning', title, message }),
-  };
+  }), [addNotification]);
 }

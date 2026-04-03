@@ -1,4 +1,5 @@
-﻿using hotelier_core_app.Model.DTOs.Response;
+﻿using hotelier_core_app.Core.Exceptions;
+using hotelier_core_app.Model.DTOs.Response;
 using Microsoft.AspNetCore.Diagnostics;
 using Newtonsoft.Json;
 using System.Net;
@@ -26,11 +27,26 @@ namespace hotelier_core_app.API.Helpers
 
                     if (contextFeature != null)
                     {
-                        await context.Response.WriteAsync(JsonConvert.SerializeObject(new BaseResponse
+                        var ex = contextFeature.Error;
+
+                        // BaseException subclasses (e.g. DataValidationException) carry their own status code
+                        if (ex is BaseException baseEx)
                         {
-                            Status = false,
-                            Message = contextFeature.Error.Message
-                        }));
+                            context.Response.StatusCode = (int)baseEx.StatusCode;
+                            await context.Response.WriteAsync(JsonConvert.SerializeObject(new BaseResponse
+                            {
+                                Status = false,
+                                Message = baseEx.Message
+                            }));
+                        }
+                        else
+                        {
+                            await context.Response.WriteAsync(JsonConvert.SerializeObject(new BaseResponse
+                            {
+                                Status = false,
+                                Message = "An unexpected error occurred. Please try again."
+                            }));
+                        }
                     }
                 });
             });

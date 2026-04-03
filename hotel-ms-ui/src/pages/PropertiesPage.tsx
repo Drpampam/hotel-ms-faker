@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSlowConnection } from '../hooks/useSlowConnection';
 import { Building2, MapPin, Plus, Edit, RefreshCw, Star, Save, X } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -72,21 +76,19 @@ function PropertyCard({ property, onEdit }: { property: Property; onEdit: (p: Pr
   );
 }
 
-interface PropertyForm {
-  name: string;
-  description: string;
-  street: string;
-  city: string;
-  state: string;
-  country: string;
-  zipCode: string;
-  latitude: string;
-  longitude: string;
-}
+const propertySchema = z.object({
+  name: z.string().min(2, 'Property name must be at least 2 characters'),
+  description: z.string().min(10, 'Description must be at least 10 characters'),
+  street: z.string().min(3, 'Street address is required'),
+  city: z.string().min(2, 'City is required'),
+  state: z.string().min(2, 'State / Province is required'),
+  country: z.string().min(2, 'Country is required'),
+  zipCode: z.string().min(3, 'Zip / Postal code is required'),
+  latitude: z.string().refine((v) => !isNaN(Number(v)), { message: 'Latitude must be a number' }).optional(),
+  longitude: z.string().refine((v) => !isNaN(Number(v)), { message: 'Longitude must be a number' }).optional(),
+});
 
-const EMPTY_FORM: PropertyForm = {
-  name: '', description: '', street: '', city: '', state: '', country: '', zipCode: '', latitude: '0', longitude: '0',
-};
+type PropertyForm = z.infer<typeof propertySchema>;
 
 function propertyToForm(p: Property): PropertyForm {
   return {
@@ -102,25 +104,49 @@ function propertyToForm(p: Property): PropertyForm {
   };
 }
 
+function PropertyFormFields({ register, errors }: {
+  register: ReturnType<typeof useForm<PropertyForm>>['register'];
+  errors: ReturnType<typeof useForm<PropertyForm>>['formState']['errors'];
+}) {
+  return (
+    <div className="space-y-4">
+      <Input label="Property Name" required placeholder="e.g. Grand Hotel Downtown" {...register('name')} error={errors.name?.message} />
+      <Input label="Description" required placeholder="Brief description of the property" {...register('description')} error={errors.description?.message} />
+      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide pt-1">Address</p>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="col-span-2">
+          <Input label="Street" required placeholder="123 Main Street" {...register('street')} error={errors.street?.message} />
+        </div>
+        <Input label="City" required placeholder="City" {...register('city')} error={errors.city?.message} />
+        <Input label="State / Province" required placeholder="State" {...register('state')} error={errors.state?.message} />
+        <Input label="Country" required placeholder="Country" {...register('country')} error={errors.country?.message} />
+        <Input label="Zip / Postal Code" required placeholder="100001" {...register('zipCode')} error={errors.zipCode?.message} />
+        <Input label="Latitude" placeholder="0.000000" {...register('latitude')} error={errors.latitude?.message} />
+        <Input label="Longitude" placeholder="0.000000" {...register('longitude')} error={errors.longitude?.message} />
+      </div>
+    </div>
+  );
+}
+
 export function PropertiesPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [editProperty, setEditProperty] = useState<Property | null>(null);
-  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
-  const [form, setForm] = useState<PropertyForm>(EMPTY_FORM);
-  const [editForm, setEditForm] = useState<PropertyForm>(EMPTY_FORM);
   const toast = useToast();
   const { tenantId } = useAuthStore();
+  useSlowConnection(isLoading);
+
+  const addForm = useForm<PropertyForm>({ resolver: zodResolver(propertySchema) });
+  const editForm = useForm<PropertyForm>({ resolver: zodResolver(propertySchema) });
 
   const loadProperties = useCallback(async () => {
     setIsLoading(true);
     try {
       const data = await propertyService.getAll({ tenantId: tenantId ?? undefined });
       setProperties(data);
-    } catch {
-      toast.error('Failed to load', 'Could not fetch properties');
+    } catch (err) {
+      toast.error('Failed to load properties', err instanceof Error ? err.message : 'Could not fetch properties');
     } finally {
       setIsLoading(false);
     }
@@ -128,97 +154,56 @@ export function PropertiesPage() {
 
   useEffect(() => { loadProperties(); }, [loadProperties]);
 
-  const handleAdd = async () => {
-    if (!form.name.trim()) { toast.error('Validation', 'Property name is required'); return; }
-    if (!form.description.trim()) { toast.error('Validation', 'Description is required'); return; }
-    if (!form.street.trim() || !form.city.trim() || !form.state.trim() || !form.country.trim() || !form.zipCode.trim()) {
-      toast.error('Validation', 'All address fields are required'); return;
-    }
-    setIsSubmitting(true);
+  const onAdd = addForm.handleSubmit(async (data) => {
     try {
       await propertyService.create({
-        name: form.name,
-        description: form.description,
+        name: data.name,
+        description: data.description,
         image: 'https://placehold.co/600x400',
         tenantId: tenantId ?? 1,
         address: {
-          street: form.street,
-          city: form.city,
-          state: form.state,
-          country: form.country,
-          zipCode: form.zipCode,
-          latitude: Number(form.latitude) || 0,
-          longitude: Number(form.longitude) || 0,
+          street: data.street, city: data.city, state: data.state,
+          country: data.country, zipCode: data.zipCode,
+          latitude: Number(data.latitude) || 0,
+          longitude: Number(data.longitude) || 0,
         },
       });
-      toast.success('Property added', `${form.name} has been created`);
+      toast.success('Property added', `${data.name} has been created`);
       setIsAddOpen(false);
-      setForm(EMPTY_FORM);
+      addForm.reset();
       await loadProperties();
-    } catch {
-      toast.error('Failed to create', 'Could not add property');
-    } finally {
-      setIsSubmitting(false);
+    } catch (err) {
+      toast.error('Failed to create property', err instanceof Error ? err.message : 'Could not add property');
     }
-  };
+  });
 
   const openEdit = (p: Property) => {
     setEditProperty(p);
-    setEditForm(propertyToForm(p));
+    editForm.reset(propertyToForm(p));
   };
 
-  const handleUpdate = async () => {
+  const onEdit = editForm.handleSubmit(async (data) => {
     if (!editProperty) return;
-    if (!editForm.name.trim()) { toast.error('Validation', 'Property name is required'); return; }
-    if (!editForm.description.trim()) { toast.error('Validation', 'Description is required'); return; }
-    setIsEditSubmitting(true);
     try {
       await propertyService.update({
         id: editProperty.id,
-        name: editForm.name,
-        description: editForm.description,
+        name: data.name,
+        description: data.description,
         image: editProperty.image ?? 'https://placehold.co/600x400',
         address: {
-          street: editForm.street,
-          city: editForm.city,
-          state: editForm.state,
-          country: editForm.country,
-          zipCode: editForm.zipCode,
-          latitude: Number(editForm.latitude) || 0,
-          longitude: Number(editForm.longitude) || 0,
+          street: data.street, city: data.city, state: data.state,
+          country: data.country, zipCode: data.zipCode,
+          latitude: Number(data.latitude) || 0,
+          longitude: Number(data.longitude) || 0,
         },
       });
-      toast.success('Property updated', `${editForm.name} has been updated`);
+      toast.success('Property updated', `${data.name} has been updated`);
       setEditProperty(null);
       await loadProperties();
-    } catch {
-      toast.error('Failed to update', 'Could not update property');
-    } finally {
-      setIsEditSubmitting(false);
+    } catch (err) {
+      toast.error('Failed to update property', err instanceof Error ? err.message : 'Could not update property');
     }
-  };
-
-  const f = (field: keyof PropertyForm, value: string) => setForm((prev) => ({ ...prev, [field]: value }));
-  const ef = (field: keyof PropertyForm, value: string) => setEditForm((prev) => ({ ...prev, [field]: value }));
-
-  const FormFields = ({ vals, onChange }: { vals: PropertyForm; onChange: (k: keyof PropertyForm, v: string) => void }) => (
-    <div className="space-y-4">
-      <Input label="Property Name" required placeholder="e.g. Grand Hotel Downtown" value={vals.name} onChange={(e) => onChange('name', e.target.value)} />
-      <Input label="Description" required placeholder="Brief description of the property" value={vals.description} onChange={(e) => onChange('description', e.target.value)} />
-      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide pt-1">Address</p>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="col-span-2">
-          <Input label="Street" required placeholder="123 Main Street" value={vals.street} onChange={(e) => onChange('street', e.target.value)} />
-        </div>
-        <Input label="City" required placeholder="City" value={vals.city} onChange={(e) => onChange('city', e.target.value)} />
-        <Input label="State / Province" required placeholder="State" value={vals.state} onChange={(e) => onChange('state', e.target.value)} />
-        <Input label="Country" required placeholder="Country" value={vals.country} onChange={(e) => onChange('country', e.target.value)} />
-        <Input label="Zip / Postal Code" required placeholder="100001" value={vals.zipCode} onChange={(e) => onChange('zipCode', e.target.value)} />
-        <Input label="Latitude" placeholder="0.000000" value={vals.latitude} onChange={(e) => onChange('latitude', e.target.value)} />
-        <Input label="Longitude" placeholder="0.000000" value={vals.longitude} onChange={(e) => onChange('longitude', e.target.value)} />
-      </div>
-    </div>
-  );
+  });
 
   return (
     <div className="page-container">
@@ -279,17 +264,19 @@ export function PropertiesPage() {
       {/* Add Modal */}
       <Modal
         isOpen={isAddOpen}
-        onClose={() => { setIsAddOpen(false); setForm(EMPTY_FORM); }}
+        onClose={() => { setIsAddOpen(false); addForm.reset(); }}
         title="Add New Property"
         size="lg"
         footer={
           <>
-            <Button variant="outline" onClick={() => { setIsAddOpen(false); setForm(EMPTY_FORM); }}>Cancel</Button>
-            <Button onClick={handleAdd} isLoading={isSubmitting} leftIcon={<Plus className="h-4 w-4" />}>Save Property</Button>
+            <Button variant="outline" onClick={() => { setIsAddOpen(false); addForm.reset(); }}>Cancel</Button>
+            <Button onClick={onAdd} isLoading={addForm.formState.isSubmitting} leftIcon={<Plus className="h-4 w-4" />}>Save Property</Button>
           </>
         }
       >
-        <FormFields vals={form} onChange={f} />
+        <form onSubmit={onAdd}>
+          <PropertyFormFields register={addForm.register} errors={addForm.formState.errors} />
+        </form>
       </Modal>
 
       {/* Edit Modal */}
@@ -301,11 +288,13 @@ export function PropertiesPage() {
         footer={
           <>
             <Button variant="outline" leftIcon={<X className="h-4 w-4" />} onClick={() => setEditProperty(null)}>Cancel</Button>
-            <Button onClick={handleUpdate} isLoading={isEditSubmitting} leftIcon={<Save className="h-4 w-4" />}>Save Changes</Button>
+            <Button onClick={onEdit} isLoading={editForm.formState.isSubmitting} leftIcon={<Save className="h-4 w-4" />}>Save Changes</Button>
           </>
         }
       >
-        {editProperty && <FormFields vals={editForm} onChange={ef} />}
+        <form onSubmit={onEdit}>
+          <PropertyFormFields register={editForm.register} errors={editForm.formState.errors} />
+        </form>
       </Modal>
     </div>
   );

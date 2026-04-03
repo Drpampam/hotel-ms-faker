@@ -3,6 +3,9 @@ import {
   Search, LayoutGrid, List, BedDouble, Users, DollarSign, X, Plus,
   RefreshCw, ChevronRight, Zap, Wrench, Wind, LogIn, LogOut, Eye
 } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { roomService } from '../services/room.service';
 import { propertyService } from '../services/property.service';
 import { Button } from '../components/ui/Button';
@@ -109,8 +112,8 @@ function RoomDetailModal({
       toast.success('Room updated', `${TRIGGER_CONFIG[trigger].label} completed`);
       onTriggered(updated);
       onClose();
-    } catch {
-      toast.error('Action failed', 'Could not change room state');
+    } catch (err) {
+      toast.error('Action failed', err instanceof Error ? err.message : 'Could not change room state');
     } finally {
       setLoadingTrigger(null);
     }
@@ -186,17 +189,17 @@ function RoomDetailModal({
 }
 
 // ── Add Room Form ──────────────────────────────────────────────────────────────
-interface AddRoomForm {
-  number: string;
-  type: string;
-  floor: string;
-  capacity: string;
-  pricePerNight: string;
-  propertyId: string;
-  description: string;
-}
+const addRoomSchema = z.object({
+  number: z.string().min(1, 'Room number is required').max(20, 'Room number too long'),
+  type: z.string().min(1, 'Room type is required'),
+  floor: z.string().refine((v) => !v || (!isNaN(Number(v)) && Number(v) >= 1), { message: 'Floor must be a positive number' }),
+  capacity: z.string().refine((v) => !isNaN(Number(v)) && Number(v) >= 1 && Number(v) <= 50, { message: 'Capacity must be between 1 and 50' }),
+  pricePerNight: z.string().refine((v) => !isNaN(Number(v)) && Number(v) > 0, { message: 'Price must be greater than 0' }),
+  propertyId: z.string().optional(),
+  description: z.string().max(500, 'Description cannot exceed 500 characters').optional(),
+});
 
-const EMPTY_FORM: AddRoomForm = { number: '', type: 'Standard', floor: '1', capacity: '2', pricePerNight: '', propertyId: '', description: '' };
+type AddRoomForm = z.infer<typeof addRoomSchema>;
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export function RoomsPage() {
@@ -208,11 +211,14 @@ export function RoomsPage() {
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [detailRoom, setDetailRoom] = useState<Room | null>(null);
-  const [form, setForm] = useState<AddRoomForm>(EMPTY_FORM);
   const toast = useToast();
   const { tenantId } = useAuthStore();
+
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<AddRoomForm>({
+    resolver: zodResolver(addRoomSchema),
+    defaultValues: { type: 'Standard', floor: '1', capacity: '2' },
+  });
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -223,8 +229,8 @@ export function RoomsPage() {
       ]);
       setRooms(roomData);
       setProperties(propData);
-    } catch {
-      toast.error('Load failed', 'Could not fetch rooms');
+    } catch (err) {
+      toast.error('Load failed', err instanceof Error ? err.message : 'Could not fetch rooms');
     } finally {
       setIsLoading(false);
     }
@@ -232,30 +238,25 @@ export function RoomsPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleAdd = async () => {
-    if (!form.number.trim()) { toast.error('Validation', 'Room number is required'); return; }
-    if (!form.pricePerNight) { toast.error('Validation', 'Price is required'); return; }
-    setIsSubmitting(true);
+  const handleAdd = handleSubmit(async (data) => {
     try {
       const created = await roomService.create({
-        number: form.number,
-        type: form.type,
-        floor: Number(form.floor),
-        capacity: Number(form.capacity),
-        pricePerNight: Number(form.pricePerNight),
-        propertyId: form.propertyId ? Number(form.propertyId) : (properties[0] ? Number(properties[0].id) : 1),
-        description: form.description || undefined,
+        number: data.number,
+        type: data.type,
+        floor: Number(data.floor),
+        capacity: Number(data.capacity),
+        pricePerNight: Number(data.pricePerNight),
+        propertyId: data.propertyId ? Number(data.propertyId) : (properties[0] ? Number(properties[0].id) : 1),
+        description: data.description || undefined,
       } as Parameters<typeof roomService.create>[0]);
       setRooms((prev) => [created, ...prev]);
-      toast.success('Room created', `Room ${form.number} added successfully`);
+      toast.success('Room created', `Room ${data.number} added successfully`);
       setIsAddOpen(false);
-      setForm(EMPTY_FORM);
-    } catch {
-      toast.error('Failed', 'Could not create room');
-    } finally {
-      setIsSubmitting(false);
+      reset();
+    } catch (err) {
+      toast.error('Failed to create room', err instanceof Error ? err.message : 'Could not create room');
     }
-  };
+  });
 
   const handleTriggered = (updated: Room) => {
     setRooms((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
@@ -368,28 +369,30 @@ export function RoomsPage() {
       <RoomDetailModal room={detailRoom} onClose={() => setDetailRoom(null)} onTriggered={handleTriggered} />
 
       {/* Add Room Modal */}
-      <Modal isOpen={isAddOpen} onClose={() => { setIsAddOpen(false); setForm(EMPTY_FORM); }} title="Add New Room" size="lg"
+      <Modal isOpen={isAddOpen} onClose={() => { setIsAddOpen(false); reset(); }} title="Add New Room" size="lg"
         footer={
           <>
-            <Button variant="outline" onClick={() => { setIsAddOpen(false); setForm(EMPTY_FORM); }}>Cancel</Button>
-            <Button isLoading={isSubmitting} onClick={handleAdd}>Add Room</Button>
+            <Button variant="outline" onClick={() => { setIsAddOpen(false); reset(); }}>Cancel</Button>
+            <Button isLoading={isSubmitting} onClick={handleAdd} leftIcon={<Plus className="h-4 w-4" />}>Add Room</Button>
           </>
         }
       >
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Room Number" required placeholder="e.g. 201" value={form.number} onChange={(e) => setForm((f) => ({ ...f, number: e.target.value }))} />
-            <Input label="Floor" type="number" min={1} value={form.floor} onChange={(e) => setForm((f) => ({ ...f, floor: e.target.value }))} />
-            <Select label="Type" required options={TYPE_OPTIONS.filter((o) => o.value)} value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))} />
-            <Input label="Capacity (guests)" type="number" min={1} max={10} value={form.capacity} onChange={(e) => setForm((f) => ({ ...f, capacity: e.target.value }))} />
-            <Input label="Price per Night ($)" type="number" required min={1} value={form.pricePerNight} onChange={(e) => setForm((f) => ({ ...f, pricePerNight: e.target.value }))} />
-            {properties.length > 0 && (
-              <Select label="Property" options={[{ value: '', label: 'Select property…' }, ...properties.map((p) => ({ value: String(p.id), label: p.name }))]}
-                value={form.propertyId} onChange={(e) => setForm((f) => ({ ...f, propertyId: e.target.value }))} />
-            )}
+        <form onSubmit={handleAdd}>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Room Number" required placeholder="e.g. 201" {...register('number')} error={errors.number?.message} />
+              <Input label="Floor" type="number" min={1} placeholder="1" {...register('floor')} error={errors.floor?.message} />
+              <Select label="Type" required options={TYPE_OPTIONS.filter((o) => o.value)} {...register('type')} error={errors.type?.message} />
+              <Input label="Capacity (guests)" type="number" min={1} max={50} {...register('capacity')} error={errors.capacity?.message} />
+              <Input label="Price per Night ($)" type="number" required min={0.01} step="0.01" placeholder="0.00" {...register('pricePerNight')} error={errors.pricePerNight?.message} />
+              {properties.length > 0 && (
+                <Select label="Property" options={[{ value: '', label: 'Select property…' }, ...properties.map((p) => ({ value: String(p.id), label: p.name }))]}
+                  {...register('propertyId')} error={errors.propertyId?.message} />
+              )}
+            </div>
+            <Input label="Description" placeholder="Room description (optional)" {...register('description')} error={errors.description?.message} />
           </div>
-          <Input label="Description" placeholder="Room description (optional)" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
-        </div>
+        </form>
       </Modal>
     </div>
   );

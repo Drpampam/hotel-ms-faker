@@ -41,17 +41,49 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor — on 401 clear auth and redirect to login
+// Response interceptor
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Business-logic failures: HTTP 200 but status:false in body
+    const body = response.data as { status?: boolean; message?: string } | undefined;
+    if (body && body.status === false) {
+      return Promise.reject(new Error(body.message || 'Request failed'));
+    }
+    return response;
+  },
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status as number | undefined;
+
+    if (status === 401) {
       localStorage.removeItem('hotel_ms_token');
       localStorage.removeItem('hotel_ms_user');
       localStorage.removeItem('hotel_ms_refresh_token');
       localStorage.removeItem('hotel-ms-auth');
       window.location.href = '/login';
+      return Promise.reject(error);
     }
+
+    if (status === 400) {
+      // FluentValidation / data-annotation errors: { message, data: [{field, message}] }
+      const body = error.response?.data as {
+        message?: string;
+        data?: { field?: string; message: string }[];
+      } | undefined;
+
+      if (Array.isArray(body?.data) && body!.data!.length > 0) {
+        const lines = body!.data!.map((e) =>
+          e.field ? `${e.field}: ${e.message}` : e.message
+        );
+        return Promise.reject(new Error(lines.join('\n')));
+      }
+      return Promise.reject(new Error(body?.message || 'Validation failed. Please check your input.'));
+    }
+
+    if (status === 500) {
+      const body = error.response?.data as { message?: string } | undefined;
+      return Promise.reject(new Error(body?.message || 'A server error occurred. Please try again.'));
+    }
+
     return Promise.reject(error);
   }
 );

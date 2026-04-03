@@ -14,9 +14,22 @@ namespace hotelier_core_app.Model.Entities
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public long Id { get; set; }
 
+        // Optional link to a platform user account. Null for walk-in guests.
         [ForeignKey("User")]
-        public long UserId { get; set; }
+        public long? UserId { get; set; }
         public ApplicationUser? User { get; set; }
+
+        /// <summary>Guest's full name — required for walk-in guests; overridden by User.FullName when linked.</summary>
+        [StringLength(200)]
+        public string? FullName { get; set; }
+
+        /// <summary>Guest contact email — stored directly so walk-in guests don't need a user account.</summary>
+        [StringLength(200)]
+        public string? Email { get; set; }
+
+        /// <summary>Guest contact phone number.</summary>
+        [StringLength(50)]
+        public string? PhoneNumber { get; set; }
 
         [StringLength(100)]
         public string? PassportNumber { get; set; }

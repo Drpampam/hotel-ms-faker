@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSlowConnection } from '../hooks/useSlowConnection';
 import { Search, Plus, User, Phone, Mail, Globe, X, Eye, Edit, Save } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,12 +11,14 @@ import { Card } from '../components/ui/Card';
 import { Table } from '../components/ui/Table';
 import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/Badge';
-import { useToast } from '../lib/store';
+import { useToast, useAuthStore } from '../lib/store';
 import type { Guest } from '../types';
 import { formatDate, getInitials } from '../lib/utils';
 
 const createGuestSchema = z.object({
-  userId: z.string().min(1, 'User ID is required'),
+  fullName: z.string().min(2, 'Full name must be at least 2 characters'),
+  email: z.string().email('Enter a valid email address').optional().or(z.literal('')),
+  phoneNumber: z.string().optional(),
   nationality: z.string().optional(),
   passportNumber: z.string().optional(),
   dateOfBirth: z.string().optional(),
@@ -48,42 +51,32 @@ export function GuestsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [viewGuest, setViewGuest] = useState<Guest | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditSubmitting, setIsEditSubmitting] = useState(false);
   const toast = useToast();
+  const { tenantId } = useAuthStore();
+  useSlowConnection(isLoading);
 
-  const {
-    register: registerCreate,
-    handleSubmit: handleCreate,
-    reset: resetCreate,
-    formState: { errors: createErrors },
-  } = useForm<CreateGuestFormData>({ resolver: zodResolver(createGuestSchema) });
-
-  const {
-    register: registerEdit,
-    handleSubmit: handleEdit,
-    reset: resetEdit,
-    formState: { errors: editErrors },
-  } = useForm<EditGuestFormData>({ resolver: zodResolver(editGuestSchema) });
+  const createForm = useForm<CreateGuestFormData>({ resolver: zodResolver(createGuestSchema) });
+  const editForm = useForm<EditGuestFormData>({ resolver: zodResolver(editGuestSchema) });
 
   const fetchGuests = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await guestService.getAll();
+      const data = await guestService.getAll({ tenantId: tenantId ?? undefined });
       setGuests(data);
-    } catch {
-      toast.error('Failed to load guests', 'Could not fetch guest profiles');
+    } catch (err) {
+      toast.error('Failed to load guests', err instanceof Error ? err.message : 'Could not fetch guest profiles');
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [tenantId, toast]);
 
   useEffect(() => { fetchGuests(); }, [fetchGuests]);
 
   const openView = (g: Guest) => {
     setViewGuest(g);
     setIsEditing(false);
-    resetEdit({
+    editForm.reset({
       nationality: g.nationality ?? '',
       passportNumber: g.passportNumber ?? g.idNumber ?? '',
       dateOfBirth: g.dateOfBirth ? g.dateOfBirth.split('T')[0] : '',
@@ -103,55 +96,55 @@ export function GuestsPage() {
     );
   });
 
-  const onCreateSubmit = async (data: CreateGuestFormData) => {
-    setIsSubmitting(true);
+  const onCreateSubmit = createForm.handleSubmit(async (data) => {
     try {
       await guestService.create({
-        userId: Number(data.userId),
-        nationality: data.nationality,
-        passportNumber: data.passportNumber,
-        dateOfBirth: data.dateOfBirth,
-        preferredRoomType: data.preferredRoomType,
-        specialRequests: data.specialRequests,
+        fullName: data.fullName,
+        email: data.email || undefined,
+        phoneNumber: data.phoneNumber || undefined,
+        nationality: data.nationality || undefined,
+        passportNumber: data.passportNumber || undefined,
+        dateOfBirth: data.dateOfBirth || undefined,
+        preferredRoomType: data.preferredRoomType || undefined,
+        specialRequests: data.specialRequests || undefined,
+        tenantId: tenantId ?? undefined,
       });
-      toast.success('Guest profile created', 'Guest profile has been added');
+      toast.success('Guest added', `${data.fullName} has been registered`);
       setIsCreateOpen(false);
-      resetCreate();
+      createForm.reset();
       await fetchGuests();
-    } catch {
-      toast.error('Failed to create guest profile', 'Check that the User ID exists and try again');
-    } finally {
-      setIsSubmitting(false);
+    } catch (err) {
+      toast.error('Failed to add guest', err instanceof Error ? err.message : 'Could not create guest profile');
     }
-  };
+  });
 
-  const onEditSubmit = async (data: EditGuestFormData) => {
+  const onEditSubmit = editForm.handleSubmit(async (data) => {
     if (!viewGuest) return;
     setIsEditSubmitting(true);
     try {
       const updated = await guestService.update({
         id: viewGuest.id,
-        nationality: data.nationality,
-        passportNumber: data.passportNumber,
+        nationality: data.nationality || undefined,
+        passportNumber: data.passportNumber || undefined,
         dateOfBirth: data.dateOfBirth || undefined,
-        preferredRoomType: data.preferredRoomType,
-        specialRequests: data.specialRequests,
+        preferredRoomType: data.preferredRoomType || undefined,
+        specialRequests: data.specialRequests || undefined,
       });
       setGuests((prev) => prev.map((g) => (g.id === viewGuest.id ? { ...g, ...updated } : g)));
       setViewGuest({ ...viewGuest, ...updated });
       setIsEditing(false);
       toast.success('Profile updated', 'Guest profile has been saved');
-    } catch {
-      toast.error('Update failed', 'Could not update guest profile');
+    } catch (err) {
+      toast.error('Update failed', err instanceof Error ? err.message : 'Could not update guest profile');
     } finally {
       setIsEditSubmitting(false);
     }
-  };
+  });
 
   const tierVariant = (tier?: string) => {
-    if (tier === 'Gold') return 'warning';
-    if (tier === 'Platinum') return 'secondary';
-    return 'info';
+    if (tier === 'Gold') return 'warning' as const;
+    if (tier === 'Platinum') return 'secondary' as const;
+    return 'info' as const;
   };
 
   const columns = [
@@ -231,7 +224,7 @@ export function GuestsPage() {
           <p className="page-subtitle">{guests.length} registered guest{guests.length !== 1 ? 's' : ''}</p>
         </div>
         <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => setIsCreateOpen(true)}>
-          Add Guest Profile
+          Add Guest
         </Button>
       </div>
 
@@ -266,7 +259,7 @@ export function GuestsPage() {
           columns={columns}
           isLoading={isLoading}
           emptyMessage="No guests found"
-          emptyDescription="Add your first guest to get started"
+          emptyDescription='Click "Add Guest" to register your first guest'
           onRowClick={(g) => openView(g as unknown as Guest)}
         />
       </Card>
@@ -274,35 +267,73 @@ export function GuestsPage() {
       {/* Create Guest Modal */}
       <Modal
         isOpen={isCreateOpen}
-        onClose={() => { setIsCreateOpen(false); resetCreate(); }}
-        title="Create Guest Profile"
-        description="Link a guest profile to an existing user account"
+        onClose={() => { setIsCreateOpen(false); createForm.reset(); }}
+        title="Add Guest"
+        description="Register a walk-in guest or hotel customer"
         size="lg"
         footer={
           <>
-            <Button variant="outline" onClick={() => { setIsCreateOpen(false); resetCreate(); }} disabled={isSubmitting}>Cancel</Button>
-            <Button isLoading={isSubmitting} onClick={handleCreate(onCreateSubmit)}>Create Profile</Button>
+            <Button variant="outline" onClick={() => { setIsCreateOpen(false); createForm.reset(); }} disabled={createForm.formState.isSubmitting}>Cancel</Button>
+            <Button isLoading={createForm.formState.isSubmitting} leftIcon={<Plus className="h-4 w-4" />} onClick={onCreateSubmit}>Add Guest</Button>
           </>
         }
       >
-        <form className="space-y-4" onSubmit={handleCreate(onCreateSubmit)}>
-          <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-            <p className="text-xs text-amber-700 dark:text-amber-400">
-              Guest profiles are linked to existing user accounts. Create the user account in the Users page first, then link their guest profile here using the User ID.
-            </p>
-          </div>
+        <form className="space-y-4" onSubmit={onCreateSubmit}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
-              <Input label="User ID" required placeholder="Numeric ID of the user account" type="number" leftIcon={<User className="h-4 w-4" />} {...registerCreate('userId')} error={createErrors.userId?.message} />
+              <Input
+                label="Full Name"
+                required
+                placeholder="e.g. John Smith"
+                leftIcon={<User className="h-4 w-4" />}
+                {...createForm.register('fullName')}
+                error={createForm.formState.errors.fullName?.message}
+              />
             </div>
-            <Input label="Nationality" placeholder="e.g. American" leftIcon={<Globe className="h-4 w-4" />} {...registerCreate('nationality')} />
-            <Input label="Passport / ID Number" placeholder="Passport or ID number" {...registerCreate('passportNumber')} />
-            <Input label="Date of Birth" type="date" {...registerCreate('dateOfBirth')} />
-            <Input label="Preferred Room Type" placeholder="e.g. Deluxe, Suite" {...registerCreate('preferredRoomType')} />
+            <Input
+              label="Email Address"
+              type="email"
+              placeholder="guest@example.com"
+              leftIcon={<Mail className="h-4 w-4" />}
+              {...createForm.register('email')}
+              error={createForm.formState.errors.email?.message}
+            />
+            <Input
+              label="Phone Number"
+              type="tel"
+              placeholder="+1 555-0100"
+              leftIcon={<Phone className="h-4 w-4" />}
+              {...createForm.register('phoneNumber')}
+            />
+          </div>
+
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide pt-1">Travel Details (optional)</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Nationality"
+              placeholder="e.g. American"
+              leftIcon={<Globe className="h-4 w-4" />}
+              {...createForm.register('nationality')}
+            />
+            <Input
+              label="Passport / ID Number"
+              placeholder="Passport or ID number"
+              {...createForm.register('passportNumber')}
+            />
+            <Input
+              label="Date of Birth"
+              type="date"
+              {...createForm.register('dateOfBirth')}
+            />
+            <Input
+              label="Preferred Room Type"
+              placeholder="e.g. Deluxe, Suite"
+              {...createForm.register('preferredRoomType')}
+            />
             <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Special Requests</label>
               <textarea
-                {...registerCreate('specialRequests')}
+                {...createForm.register('specialRequests')}
                 rows={2}
                 placeholder="Any standing preferences…"
                 className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
@@ -322,7 +353,7 @@ export function GuestsPage() {
           isEditing ? (
             <>
               <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isEditSubmitting}>Cancel</Button>
-              <Button isLoading={isEditSubmitting} leftIcon={<Save className="h-4 w-4" />} onClick={handleEdit(onEditSubmit)}>Save Changes</Button>
+              <Button isLoading={isEditSubmitting} leftIcon={<Save className="h-4 w-4" />} onClick={onEditSubmit}>Save Changes</Button>
             </>
           ) : (
             <>
@@ -334,7 +365,6 @@ export function GuestsPage() {
       >
         {viewGuest && !isEditing && (
           <div className="space-y-5">
-            {/* Avatar */}
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
                 <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
@@ -379,16 +409,16 @@ export function GuestsPage() {
         )}
 
         {viewGuest && isEditing && (
-          <form className="space-y-4" onSubmit={handleEdit(onEditSubmit)}>
+          <form className="space-y-4" onSubmit={onEditSubmit}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input label="Nationality" placeholder="e.g. American" leftIcon={<Globe className="h-4 w-4" />} {...registerEdit('nationality')} error={editErrors.nationality?.message} />
-              <Input label="Passport / ID Number" placeholder="Passport or ID number" {...registerEdit('passportNumber')} error={editErrors.passportNumber?.message} />
-              <Input label="Date of Birth" type="date" {...registerEdit('dateOfBirth')} error={editErrors.dateOfBirth?.message} />
-              <Input label="Preferred Room Type" placeholder="e.g. Deluxe, Suite" {...registerEdit('preferredRoomType')} error={editErrors.preferredRoomType?.message} />
+              <Input label="Nationality" placeholder="e.g. American" leftIcon={<Globe className="h-4 w-4" />} {...editForm.register('nationality')} error={editForm.formState.errors.nationality?.message} />
+              <Input label="Passport / ID Number" placeholder="Passport or ID number" {...editForm.register('passportNumber')} error={editForm.formState.errors.passportNumber?.message} />
+              <Input label="Date of Birth" type="date" {...editForm.register('dateOfBirth')} error={editForm.formState.errors.dateOfBirth?.message} />
+              <Input label="Preferred Room Type" placeholder="e.g. Deluxe, Suite" {...editForm.register('preferredRoomType')} error={editForm.formState.errors.preferredRoomType?.message} />
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Special Requests</label>
                 <textarea
-                  {...registerEdit('specialRequests')}
+                  {...editForm.register('specialRequests')}
                   rows={3}
                   placeholder="Any standing preferences…"
                   className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"

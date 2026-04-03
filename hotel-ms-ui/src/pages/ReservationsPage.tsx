@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSlowConnection } from '../hooks/useSlowConnection';
 import {
   Plus,
   Search,
@@ -47,14 +48,21 @@ const statusVariant: Record<string, 'warning' | 'info' | 'success' | 'default' |
   NoShow: 'secondary',
 };
 
+const today = new Date().toISOString().split('T')[0];
+
 const createSchema = z.object({
   guestId: z.string().min(1, 'Guest is required'),
   roomId: z.string().min(1, 'Room is required'),
-  checkInDate: z.string().min(1, 'Check-in date is required'),
+  checkInDate: z.string()
+    .min(1, 'Check-in date is required')
+    .refine((d) => d >= today, { message: 'Check-in date cannot be in the past' }),
   checkOutDate: z.string().min(1, 'Check-out date is required'),
-  adults: z.number().min(1).max(10).default(1),
+  adults: z.number().min(1, 'At least 1 adult required').max(10).default(1),
   children: z.number().min(0).max(10).default(0),
-  specialRequests: z.string().optional(),
+  specialRequests: z.string().max(500, 'Special requests cannot exceed 500 characters').optional(),
+}).refine((d) => !d.checkInDate || !d.checkOutDate || d.checkOutDate > d.checkInDate, {
+  message: 'Check-out date must be after check-in date',
+  path: ['checkOutDate'],
 });
 
 type CreateFormData = z.infer<typeof createSchema>;
@@ -71,6 +79,7 @@ export function ReservationsPage() {
   const [viewReservation, setViewReservation] = useState<Reservation | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const toast = useToast();
+  useSlowConnection(isLoading);
 
   const {
     register,
@@ -138,8 +147,8 @@ export function ReservationsPage() {
       setIsCreateOpen(false);
       reset();
       await fetchData();
-    } catch {
-      toast.error('Failed to create reservation', 'Please check the details and try again');
+    } catch (err) {
+      toast.error('Failed to create reservation', err instanceof Error ? err.message : 'Please check the details and try again');
     } finally {
       setIsSubmitting(false);
     }
@@ -474,8 +483,8 @@ export function ReservationsPage() {
                         toast.success('Status updated', `Reservation status changed to ${s}`);
                         setViewReservation({ ...viewReservation, status: s as Reservation['status'] });
                         await fetchData();
-                      } catch {
-                        toast.error('Update failed', 'Could not update reservation status');
+                      } catch (err) {
+                        toast.error('Update failed', err instanceof Error ? err.message : 'Could not update reservation status');
                       }
                     }}
                     className={cn(

@@ -1,6 +1,6 @@
-using AutoMapper;
 using hotelier_core_app.Core.Constants;
 using hotelier_core_app.Core.Helpers.Interface;
+using Microsoft.EntityFrameworkCore;
 using hotelier_core_app.Core.States;
 using hotelier_core_app.Domain.Commands.Interface;
 using hotelier_core_app.Domain.Queries.Interface;
@@ -20,7 +20,6 @@ namespace hotelier_core_app.Service.Implementation
         private readonly IDBQueryRepository<Room> _roomQueryRepository;
         private readonly IDBCommandRepository<AuditLog> _auditLogCommandRepository;
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly IMapper _mapper;
         private readonly IUtility _utility;
 
         public GuestService(
@@ -30,7 +29,6 @@ namespace hotelier_core_app.Service.Implementation
             IDBQueryRepository<Room> roomQueryRepository,
             IDBCommandRepository<AuditLog> auditLogCommandRepository,
             UserManager<ApplicationUser> userManager,
-            IMapper mapper,
             IUtility utility)
         {
             _guestProfileCommandRepository = guestProfileCommandRepository;
@@ -39,25 +37,43 @@ namespace hotelier_core_app.Service.Implementation
             _roomQueryRepository = roomQueryRepository;
             _auditLogCommandRepository = auditLogCommandRepository;
             _userManager = userManager;
-            _mapper = mapper;
             _utility = utility;
         }
 
         public async Task<BaseResponse<GuestProfileResponseDTO>> CreateGuestProfileAsync(CreateGuestProfileRequestDTO request, AuditLog auditLog)
         {
-            var user = await _userManager.FindByIdAsync(request.UserId.ToString());
-            if (user == null)
-                return BaseResponse<GuestProfileResponseDTO>.Failure(new GuestProfileResponseDTO(), ResponseMessages.UserDoesNotExist, ResponseStatusCode.UserDoesNotExist);
+            ApplicationUser? user = null;
 
-            var exists = await _guestProfileQueryRepository.IsExistAsync(g => g.UserId == request.UserId && !g.IsDeleted);
-            if (exists)
-                return BaseResponse<GuestProfileResponseDTO>.Failure(new GuestProfileResponseDTO(), ResponseMessages.GuestProfileAlreadyExists, ResponseStatusCode.GuestProfileAlreadyExists);
+            // If a platform user account is linked, validate it exists
+            if (request.UserId.HasValue && request.UserId.Value != 0)
+            {
+                user = await _userManager.FindByIdAsync(request.UserId.Value.ToString());
+                if (user == null)
+                    return BaseResponse<GuestProfileResponseDTO>.Failure(new GuestProfileResponseDTO(), ResponseMessages.UserDoesNotExist, ResponseStatusCode.UserDoesNotExist);
 
-            var profile = _mapper.Map<GuestProfile>(request);
-            profile.CreatedBy = auditLog.PerformedBy;
-            profile.CreationDate = DateTime.UtcNow;
-            profile.LoyaltyPoints = 0;
-            profile.LoyaltyTier = "Bronze";
+                // Prevent duplicate profiles for the same user account
+                var exists = await _guestProfileQueryRepository.IsExistAsync(g => g.UserId == request.UserId.Value && !g.IsDeleted);
+                if (exists)
+                    return BaseResponse<GuestProfileResponseDTO>.Failure(new GuestProfileResponseDTO(), ResponseMessages.GuestProfileAlreadyExists, ResponseStatusCode.GuestProfileAlreadyExists);
+            }
+
+            var profile = new GuestProfile
+            {
+                UserId = request.UserId,
+                FullName = request.FullName,
+                Email = request.Email,
+                PhoneNumber = request.PhoneNumber,
+                PassportNumber = request.PassportNumber,
+                Nationality = request.Nationality,
+                DateOfBirth = request.DateOfBirth,
+                PreferredRoomType = request.PreferredRoomType,
+                SpecialRequests = request.SpecialRequests,
+                TenantId = request.TenantId,
+                LoyaltyPoints = 0,
+                LoyaltyTier = "Bronze",
+                CreatedBy = auditLog.PerformedBy,
+                CreationDate = DateTime.UtcNow,
+            };
 
             _guestProfileCommandRepository.Add(profile);
             _auditLogCommandRepository.Add(auditLog);
@@ -85,7 +101,9 @@ namespace hotelier_core_app.Service.Implementation
             _auditLogCommandRepository.Add(auditLog);
             await _auditLogCommandRepository.SaveAsync();
 
-            var user = await _userManager.FindByIdAsync(profile.UserId.ToString());
+            ApplicationUser? user = null;
+            if (profile.UserId.HasValue)
+                user = await _userManager.FindByIdAsync(profile.UserId.Value.ToString());
             var response = BuildGuestResponse(profile, user);
             return BaseResponse<GuestProfileResponseDTO>.Success(response, ResponseMessages.GuestProfileUpdated, ResponseStatusCode.GuestProfileUpdated);
         }
@@ -96,7 +114,9 @@ namespace hotelier_core_app.Service.Implementation
             if (profile == null)
                 return BaseResponse<GuestProfileResponseDTO>.Failure(new GuestProfileResponseDTO(), ResponseMessages.GuestProfileNotFound, ResponseStatusCode.GuestProfileNotFound);
 
-            var user = await _userManager.FindByIdAsync(profile.UserId.ToString());
+            ApplicationUser? user = null;
+            if (profile.UserId.HasValue)
+                user = await _userManager.FindByIdAsync(profile.UserId.Value.ToString());
             var response = BuildGuestResponse(profile, user);
             return BaseResponse<GuestProfileResponseDTO>.Success(response, ResponseMessages.OperationSuccessful, ResponseStatusCode.OperationSuccessful);
         }
@@ -119,19 +139,33 @@ namespace hotelier_core_app.Service.Implementation
                 (!input.TenantId.HasValue || g.TenantId == input.TenantId.Value) &&
                 (input.Nationality == null || g.Nationality == input.Nationality));
 
-            var paginated = _utility.Paginate(all, input.PageNumber, input.PageSize);
+            var paginated = _utility.Paginate(all, input.PageNumber, input.PageSize).ToList();
+
+            // Batch-load all linked users in ONE query instead of one per guest (N+1 fix)
+            var linkedUserIds = paginated
+                .Where(p => p.UserId.HasValue)
+                .Select(p => p.UserId!.Value)
+                .Distinct()
+                .ToList();
+            var users = linkedUserIds.Count > 0
+                ? await _userManager.Users.Where(u => linkedUserIds.Contains(u.Id)).ToListAsync()
+                : new List<ApplicationUser>();
+            var userMap = users.ToDictionary(u => u.Id);
 
             var responses = new List<GuestProfileResponseDTO>();
             foreach (var profile in paginated)
             {
-                var user = await _userManager.FindByIdAsync(profile.UserId.ToString());
-                // Apply search term filter on user name/email
+                ApplicationUser? user = null;
+                if (profile.UserId.HasValue)
+                    userMap.TryGetValue(profile.UserId.Value, out user);
+
+                // Apply search term filter against name/email from profile or linked user
                 if (input.SearchTerm != null)
                 {
                     var term = input.SearchTerm.ToLower();
-                    if (user == null ||
-                        (!(user.FullName?.ToLower().Contains(term) ?? false) &&
-                         !(user.Email?.ToLower().Contains(term) ?? false)))
+                    var name = (user?.FullName ?? profile.FullName ?? "").ToLower();
+                    var email = (user?.Email ?? profile.Email ?? "").ToLower();
+                    if (!name.Contains(term) && !email.Contains(term))
                         continue;
                 }
                 responses.Add(BuildGuestResponse(profile, user));
@@ -149,12 +183,20 @@ namespace hotelier_core_app.Service.Implementation
 
             var reservations = await _reservationQueryRepository.GetByAsync(r => r.GuestId == profile.UserId && !r.IsDeleted);
             var paginated = _utility.Paginate(reservations, pageNumber, pageSize);
-            var user = await _userManager.FindByIdAsync(profile.UserId.ToString());
+            ApplicationUser? user = null;
+            if (profile.UserId.HasValue)
+                user = await _userManager.FindByIdAsync(profile.UserId.Value.ToString());
+
+            // Batch-load all required rooms in ONE query instead of one per reservation (N+1 fix)
+            var paginatedList = paginated.ToList();
+            var roomIds = paginatedList.Select(r => r.RoomId).Distinct().ToList();
+            var rooms = await _roomQueryRepository.GetByAsync(r => roomIds.Contains(r.Id));
+            var roomMap = rooms.ToDictionary(r => r.Id);
 
             var responses = new List<ReservationResponseDTO>();
-            foreach (var r in paginated)
+            foreach (var r in paginatedList)
             {
-                var room = await _roomQueryRepository.FindAsync(r.RoomId);
+                roomMap.TryGetValue(r.RoomId, out var room);
                 int nights = (int)(r.CheckOutDate.Date - r.CheckInDate.Date).TotalDays;
                 responses.Add(new ReservationResponseDTO
                 {
@@ -186,9 +228,9 @@ namespace hotelier_core_app.Service.Implementation
         {
             Id = profile.Id,
             UserId = profile.UserId,
-            FullName = user?.FullName,
-            Email = user?.Email,
-            PhoneNumber = user?.PhoneNumber,
+            FullName = user?.FullName ?? profile.FullName,
+            Email = user?.Email ?? profile.Email,
+            PhoneNumber = user?.PhoneNumber ?? profile.PhoneNumber,
             PassportNumber = profile.PassportNumber,
             Nationality = profile.Nationality,
             DateOfBirth = profile.DateOfBirth,

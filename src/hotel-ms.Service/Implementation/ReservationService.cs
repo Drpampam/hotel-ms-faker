@@ -230,19 +230,31 @@ namespace hotelier_core_app.Service.Implementation
 
         public async Task<PageBaseResponse<List<ReservationResponseDTO>>> GetReservationsAsync(GetReservationsInputDTO input)
         {
-            var all = await _reservationQueryRepository.GetByAsync(r =>
-                !r.IsDeleted &&
-                (!input.GuestId.HasValue || r.GuestId == input.GuestId.Value) &&
-                (!input.RoomId.HasValue || r.RoomId == input.RoomId.Value) &&
-                (!input.Status.HasValue || r.Status == input.Status.Value) &&
-                (!input.FromDate.HasValue || r.CheckInDate >= input.FromDate.Value) &&
-                (!input.ToDate.HasValue || r.CheckOutDate <= input.ToDate.Value));
+            // Use direct context query with Include so Room and User navigation properties are populated.
+            // The generic repository's GetByAsync does not eager-load navigation properties,
+            // causing r.Room and r.User to be null and producing empty reservation records.
+            var query = _context.Reservations
+                .Include(r => r.Room)
+                .Include(r => r.User)
+                .Where(r =>
+                    !r.IsDeleted &&
+                    (!input.GuestId.HasValue || r.GuestId == input.GuestId.Value) &&
+                    (!input.RoomId.HasValue || r.RoomId == input.RoomId.Value) &&
+                    (!input.Status.HasValue || r.Status == input.Status.Value) &&
+                    (!input.FromDate.HasValue || r.CheckInDate >= input.FromDate.Value) &&
+                    (!input.ToDate.HasValue || r.CheckOutDate <= input.ToDate.Value));
 
-            var paginated = _utility.Paginate(all, input.PageNumber, input.PageSize);
+            var totalCount = await query.CountAsync();
+            var paginated = await query
+                .OrderByDescending(r => r.CreationDate)
+                .Skip((input.PageNumber - 1) * input.PageSize)
+                .Take(input.PageSize)
+                .ToListAsync();
+
             var responses = paginated.Select(r => BuildReservationResponse(r, r.Room, r.User)).ToList();
 
             return PageBaseResponse<List<ReservationResponseDTO>>.Success(responses, ResponseMessages.ReservationsRetrieved,
-                count: responses.Count, totalPageCount: all.Count(), pageSize: input.PageSize, pageNumber: input.PageNumber);
+                count: responses.Count, totalPageCount: totalCount, pageSize: input.PageSize, pageNumber: input.PageNumber);
         }
 
         public async Task<BaseResponse<ReservationResponseDTO>> CancelReservationAsync(long reservationId, AuditLog auditLog)

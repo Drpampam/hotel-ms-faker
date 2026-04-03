@@ -71,12 +71,13 @@ export const guestService = {
 
   /**
    * POST /api/v1/guests — body: CreateGuestProfileRequestDTO
-   * NOTE: The backend requires a userId (an existing application user).
-   * The UI create flow should first create a user, then create the guest profile.
-   * { userId: long, passportNumber?, nationality?, dateOfBirth?, preferredRoomType?, specialRequests?, tenantId? }
+   * Walk-in guests only need fullName. Platform users can be linked via userId.
    */
   async create(request: {
-    userId: number;
+    fullName: string;
+    email?: string;
+    phoneNumber?: string;
+    userId?: number;
     passportNumber?: string;
     nationality?: string;
     dateOfBirth?: string;

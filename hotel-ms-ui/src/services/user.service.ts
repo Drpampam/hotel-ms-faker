@@ -62,9 +62,8 @@ export const userService = {
    * POST /api/v1/User/create-user — body: CreateUserRequestDTO
    * { email, fullName, phoneNumber, password, role, hotelName?, subscriptionPlanId? }
    */
-  async create(user: CreateUserRequest): Promise<User> {
-    const response = await api.post<ApiResponse<unknown>>('/api/v1/User/create-user', user);
-    return mapUser(response.data.data as Parameters<typeof mapUser>[0]);
+  async create(user: CreateUserRequest): Promise<void> {
+    await api.post('/api/v1/User/create-user', user);
   },
 
   /**

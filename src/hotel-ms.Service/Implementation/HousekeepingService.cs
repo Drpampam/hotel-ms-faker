@@ -55,6 +55,10 @@ namespace hotelier_core_app.Service.Implementation
             if (room == null)
                 return BaseResponse<HousekeepingTaskResponseDTO>.Failure(new HousekeepingTaskResponseDTO(), ResponseMessages.RoomNotFound, ResponseStatusCode.RoomNotFound);
 
+            // Normalize ScheduledAt to UTC (datetime-local inputs arrive as Kind=Unspecified)
+            if (request.ScheduledAt.HasValue)
+                request.ScheduledAt = DateTime.SpecifyKind(request.ScheduledAt.Value, DateTimeKind.Utc);
+
             var task = new HousekeepingTask
             {
                 RoomId = request.RoomId,

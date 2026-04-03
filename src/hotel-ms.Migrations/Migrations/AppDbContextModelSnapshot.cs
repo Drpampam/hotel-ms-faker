@@ -1661,7 +1661,7 @@ namespace hotelier_core_app.Migrations.Migrations
                         .WithMany("Reservations")
                         .HasForeignKey("DiscountId");
 
-                    b.HasOne("hotelier_core_app.Model.Entities.ApplicationUser", "User")
+                    b.HasOne("hotelier_core_app.Model.Entities.GuestProfile", "GuestProfile")
                         .WithMany()
                         .HasForeignKey("GuestId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1675,9 +1675,9 @@ namespace hotelier_core_app.Migrations.Migrations
 
                     b.Navigation("Discount");
 
-                    b.Navigation("Room");
+                    b.Navigation("GuestProfile");
 
-                    b.Navigation("User");
+                    b.Navigation("Room");
                 });
 
             modelBuilder.Entity("hotelier_core_app.Model.Entities.RolePolicyGroup", b =>

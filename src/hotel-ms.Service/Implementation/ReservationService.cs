@@ -9,7 +9,6 @@ using hotelier_core_app.Domain.Queries.Interface;
 using hotelier_core_app.Model.DTOs.Request;
 using hotelier_core_app.Model.DTOs.Response;
 using hotelier_core_app.Service.Interface;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -25,7 +24,6 @@ namespace hotelier_core_app.Service.Implementation
         private readonly IDBCommandRepository<HousekeepingTask> _housekeepingTaskCommandRepository;
         private readonly IDBCommandRepository<AuditLog> _auditLogCommandRepository;
         private readonly INotificationService _notificationService;
-        private readonly UserManager<ApplicationUser> _userManager;
         private readonly IMapper _mapper;
         private readonly IUtility _utility;
         private readonly AppDbContext _context;
@@ -40,7 +38,6 @@ namespace hotelier_core_app.Service.Implementation
             IDBCommandRepository<HousekeepingTask> housekeepingTaskCommandRepository,
             IDBCommandRepository<AuditLog> auditLogCommandRepository,
             INotificationService notificationService,
-            UserManager<ApplicationUser> userManager,
             IMapper mapper,
             IUtility utility,
             AppDbContext context,
@@ -54,7 +51,6 @@ namespace hotelier_core_app.Service.Implementation
             _housekeepingTaskCommandRepository = housekeepingTaskCommandRepository;
             _auditLogCommandRepository = auditLogCommandRepository;
             _notificationService = notificationService;
-            _userManager = userManager;
             _mapper = mapper;
             _utility = utility;
             _context = context;
@@ -63,13 +59,17 @@ namespace hotelier_core_app.Service.Implementation
 
         public async Task<BaseResponse<ReservationResponseDTO>> CreateReservationAsync(CreateReservationRequestDTO request, AuditLog auditLog)
         {
+            // Npgsql requires DateTimeKind.Utc for timestamptz columns — date-only strings arrive as Unspecified
+            request.CheckInDate = DateTime.SpecifyKind(request.CheckInDate, DateTimeKind.Utc);
+            request.CheckOutDate = DateTime.SpecifyKind(request.CheckOutDate, DateTimeKind.Utc);
+
             _logger.LogInformation("Creating reservation for room {RoomId}, guest {GuestId}, dates {CheckIn}-{CheckOut}",
                 request.RoomId, request.GuestId, request.CheckInDate, request.CheckOutDate);
 
             if (request.CheckOutDate <= request.CheckInDate)
                 return BaseResponse<ReservationResponseDTO>.Failure(new ReservationResponseDTO(), ResponseMessages.InvalidDateRange, ResponseStatusCode.InvalidData);
 
-            var guest = await _userManager.FindByIdAsync(request.GuestId.ToString());
+            var guest = await _context.GuestProfiles.FindAsync(request.GuestId);
             if (guest == null)
                 return BaseResponse<ReservationResponseDTO>.Failure(new ReservationResponseDTO(), ResponseMessages.UserDoesNotExist, ResponseStatusCode.UserDoesNotExist);
 
@@ -160,6 +160,11 @@ namespace hotelier_core_app.Service.Implementation
 
         public async Task<BaseResponse<ReservationResponseDTO>> UpdateReservationAsync(UpdateReservationRequestDTO request, AuditLog auditLog)
         {
+            if (request.CheckInDate.HasValue)
+                request.CheckInDate = DateTime.SpecifyKind(request.CheckInDate.Value, DateTimeKind.Utc);
+            if (request.CheckOutDate.HasValue)
+                request.CheckOutDate = DateTime.SpecifyKind(request.CheckOutDate.Value, DateTimeKind.Utc);
+
             var reservation = await _reservationQueryRepository.FindAsync(request.Id);
             if (reservation == null)
                 return BaseResponse<ReservationResponseDTO>.Failure(new ReservationResponseDTO(), ResponseMessages.ReservationNotFound, ResponseStatusCode.ReservationNotFound);
@@ -209,7 +214,7 @@ namespace hotelier_core_app.Service.Implementation
             await _reservationCommandRepository.UpdateAsync(reservation);
             _auditLogCommandRepository.Add(auditLog);
 
-            var guest = await _userManager.FindByIdAsync(reservation.GuestId.ToString());
+            var guest = await _context.GuestProfiles.FindAsync(reservation.GuestId);
             var response = BuildReservationResponse(reservation, room, guest);
             return BaseResponse<ReservationResponseDTO>.Success(response, ResponseMessages.ReservationUpdated, ResponseStatusCode.ReservationUpdated);
         }
@@ -219,12 +224,12 @@ namespace hotelier_core_app.Service.Implementation
             var reservation = _reservationQueryRepository.FindByInclude(
                 r => r.Id == reservationId,
                 r => r.Room,
-                r => r.User).FirstOrDefault();
+                r => r.GuestProfile).FirstOrDefault();
 
             if (reservation == null)
                 return BaseResponse<ReservationResponseDTO>.Failure(new ReservationResponseDTO(), ResponseMessages.ReservationNotFound, ResponseStatusCode.ReservationNotFound);
 
-            var response = BuildReservationResponse(reservation, reservation.Room, reservation.User);
+            var response = BuildReservationResponse(reservation, reservation.Room, reservation.GuestProfile);
             return BaseResponse<ReservationResponseDTO>.Success(response, ResponseMessages.OperationSuccessful, ResponseStatusCode.OperationSuccessful);
         }
 
@@ -232,10 +237,10 @@ namespace hotelier_core_app.Service.Implementation
         {
             // Use direct context query with Include so Room and User navigation properties are populated.
             // The generic repository's GetByAsync does not eager-load navigation properties,
-            // causing r.Room and r.User to be null and producing empty reservation records.
+            // causing r.Room and r.GuestProfile to be null and producing empty reservation records.
             var query = _context.Reservations
                 .Include(r => r.Room)
-                .Include(r => r.User)
+                .Include(r => r.GuestProfile)
                 .Where(r =>
                     !r.IsDeleted &&
                     (!input.GuestId.HasValue || r.GuestId == input.GuestId.Value) &&
@@ -251,7 +256,7 @@ namespace hotelier_core_app.Service.Implementation
                 .Take(input.PageSize)
                 .ToListAsync();
 
-            var responses = paginated.Select(r => BuildReservationResponse(r, r.Room, r.User)).ToList();
+            var responses = paginated.Select(r => BuildReservationResponse(r, r.Room, r.GuestProfile)).ToList();
 
             return PageBaseResponse<List<ReservationResponseDTO>>.Success(responses, ResponseMessages.ReservationsRetrieved,
                 count: responses.Count, totalPageCount: totalCount, pageSize: input.PageSize, pageNumber: input.PageNumber);
@@ -274,7 +279,7 @@ namespace hotelier_core_app.Service.Implementation
             _auditLogCommandRepository.Add(auditLog);
 
             var room = await _roomQueryRepository.FindAsync(reservation.RoomId);
-            var guest = await _userManager.FindByIdAsync(reservation.GuestId.ToString());
+            var guest = await _context.GuestProfiles.FindAsync(reservation.GuestId);
             var response = BuildReservationResponse(reservation, room, guest);
             return BaseResponse<ReservationResponseDTO>.Success(response, ResponseMessages.ReservationCancelled, ResponseStatusCode.ReservationCancelled);
         }
@@ -311,7 +316,7 @@ namespace hotelier_core_app.Service.Implementation
 
             _auditLogCommandRepository.Add(auditLog);
 
-            var guest = await _userManager.FindByIdAsync(reservation.GuestId.ToString());
+            var guest = await _context.GuestProfiles.FindAsync(reservation.GuestId);
 
             if (!string.IsNullOrEmpty(guest?.Email))
                 _ = _notificationService.SendCheckInWelcomeAsync(reservation, guest.Email, guest.FullName ?? guest.Email);
@@ -369,7 +374,7 @@ namespace hotelier_core_app.Service.Implementation
 
             _auditLogCommandRepository.Add(auditLog);
 
-            var guest = await _userManager.FindByIdAsync(reservation.GuestId.ToString());
+            var guest = await _context.GuestProfiles.FindAsync(reservation.GuestId);
 
             if (!string.IsNullOrEmpty(guest?.Email))
                 _ = _notificationService.SendCheckOutSummaryAsync(reservation, guest.Email, guest.FullName ?? guest.Email);
@@ -378,7 +383,7 @@ namespace hotelier_core_app.Service.Implementation
             return BaseResponse<ReservationResponseDTO>.Success(response, ResponseMessages.ReservationCheckedOut, ResponseStatusCode.CheckedOut);
         }
 
-        private ReservationResponseDTO BuildReservationResponse(Reservation reservation, Room? room, ApplicationUser? guest)
+        private ReservationResponseDTO BuildReservationResponse(Reservation reservation, Room? room, GuestProfile? guest)
         {
             int nights = (int)(reservation.CheckOutDate.Date - reservation.CheckInDate.Date).TotalDays;
             return new ReservationResponseDTO

@@ -50,15 +50,15 @@ namespace hotelier_core_app.Model.Entities
         /// </summary>
         public bool IsDeleted { get; set; }
 
-        [ForeignKey("User")]
+        [ForeignKey("GuestProfile")]
         /// <summary>
-        /// Gets or sets the guest ID associated with the reservation.
+        /// Gets or sets the guest profile ID associated with the reservation.
         /// </summary>
         public long GuestId { get; set; }
         /// <summary>
-        /// Gets or sets the user entity associated with the reservation.
+        /// Gets or sets the guest profile entity associated with the reservation.
         /// </summary>
-        public ApplicationUser? User { get; set; }
+        public GuestProfile? GuestProfile { get; set; }
 
         [ForeignKey("Room")]
         /// <summary>

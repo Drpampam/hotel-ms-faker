@@ -14,7 +14,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
-using Microsoft.EntityFrameworkCore;
 
 namespace hotelier_core_app.Service.Implementation
 {
@@ -484,6 +483,18 @@ namespace hotelier_core_app.Service.Implementation
             {
                 var currentRoles = await _userManager.GetRolesAsync(user);
                 await _userManager.RemoveFromRolesAsync(user, currentRoles);
+                foreach (var role in model.Roles)
+                {
+                    if (!await _roleManager.RoleExistsAsync(role))
+                    {
+                        await _roleManager.CreateAsync(new ApplicationRole
+                        {
+                            Name = role,
+                            CreationDate = DateTime.UtcNow,
+                            CreatedBy = auditLog.PerformedBy ?? HOTELIER_ADMIN
+                        });
+                    }
+                }
                 await _userManager.AddToRolesAsync(user, model.Roles);
             }
 

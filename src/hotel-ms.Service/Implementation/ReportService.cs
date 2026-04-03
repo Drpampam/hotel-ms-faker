@@ -257,9 +257,8 @@ namespace hotelier_core_app.Service.Implementation
                     COUNT(*) AS ""TotalPayments"",
                     COALESCE(SUM(p.""Amount""), 0) AS ""TotalAmount""
                 FROM ""{schema}"".""Payment"" p
-                WHERE p.""IsDeleted"" = false
-                  AND p.""CreationDate"" >= @FromDate
-                  AND p.""CreationDate"" <= @ToDate";
+                WHERE p.""PaymentDate"" >= @FromDate
+                  AND p.""PaymentDate"" <= @ToDate";
 
             var byMethodSql = $@"
                 SELECT
@@ -267,9 +266,8 @@ namespace hotelier_core_app.Service.Implementation
                     COUNT(*) AS ""Count"",
                     COALESCE(SUM(p.""Amount""), 0) AS ""Amount""
                 FROM ""{schema}"".""Payment"" p
-                WHERE p.""IsDeleted"" = false
-                  AND p.""CreationDate"" >= @FromDate
-                  AND p.""CreationDate"" <= @ToDate
+                WHERE p.""PaymentDate"" >= @FromDate
+                  AND p.""PaymentDate"" <= @ToDate
                 GROUP BY p.""PaymentMethod""";
 
             var param = new { FromDate = fromDate, ToDate = toDate };

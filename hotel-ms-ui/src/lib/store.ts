@@ -103,7 +103,7 @@ export const useSidebarStore = create<SidebarStore>()((set) => ({
   closeMobile: () => set({ isMobileOpen: false }),
 }));
 
-// Notification Store
+// Notification Store — short-lived toasts (auto-dismiss)
 interface Notification {
   id: string;
   type: 'success' | 'error' | 'info' | 'warning';
@@ -142,18 +142,75 @@ export const useNotificationStore = create<NotificationStore>()((set) => ({
   clearAll: () => set({ notifications: [] }),
 }));
 
+// Notification History Store — persistent in-session log shown in the bell dropdown
+const HISTORY_LIMIT = 30;
+
+export interface NotificationHistoryItem {
+  id: string;
+  type: 'success' | 'error' | 'info' | 'warning';
+  title: string;
+  message?: string;
+  timestamp: number; // Date.now()
+  read: boolean;
+}
+
+interface NotificationHistoryStore {
+  history: NotificationHistoryItem[];
+  unreadCount: number;
+  add: (item: Omit<NotificationHistoryItem, 'id' | 'timestamp' | 'read'>) => void;
+  markAllRead: () => void;
+  markRead: (id: string) => void;
+  clearHistory: () => void;
+}
+
+export const useNotificationHistoryStore = create<NotificationHistoryStore>()((set) => ({
+  history: [],
+  unreadCount: 0,
+  add: (item) =>
+    set((state) => {
+      const entry: NotificationHistoryItem = {
+        ...item,
+        id: Date.now().toString() + Math.random().toString(36).slice(2),
+        timestamp: Date.now(),
+        read: false,
+      };
+      const updated = [entry, ...state.history].slice(0, HISTORY_LIMIT);
+      return { history: updated, unreadCount: updated.filter((n) => !n.read).length };
+    }),
+  markAllRead: () =>
+    set((state) => ({
+      history: state.history.map((n) => ({ ...n, read: true })),
+      unreadCount: 0,
+    })),
+  markRead: (id) =>
+    set((state) => {
+      const updated = state.history.map((n) => (n.id === id ? { ...n, read: true } : n));
+      return { history: updated, unreadCount: updated.filter((n) => !n.read).length };
+    }),
+  clearHistory: () => set({ history: [], unreadCount: 0 }),
+}));
+
 // Helper hook for notifications — returns a stable object so useCallback deps on `toast` don't cause infinite loops
 export function useToast() {
   const addNotification = useNotificationStore((s) => s.addNotification);
+  const addToHistory = useNotificationHistoryStore((s) => s.add);
 
   return useMemo(() => ({
-    success: (title: string, message?: string) =>
-      addNotification({ type: 'success', title, message }),
-    error: (title: string, message?: string) =>
-      addNotification({ type: 'error', title, message }),
-    info: (title: string, message?: string) =>
-      addNotification({ type: 'info', title, message }),
-    warning: (title: string, message?: string) =>
-      addNotification({ type: 'warning', title, message }),
-  }), [addNotification]);
+    success: (title: string, message?: string) => {
+      addNotification({ type: 'success', title, message });
+      addToHistory({ type: 'success', title, message });
+    },
+    error: (title: string, message?: string) => {
+      addNotification({ type: 'error', title, message });
+      addToHistory({ type: 'error', title, message });
+    },
+    info: (title: string, message?: string) => {
+      addNotification({ type: 'info', title, message });
+      addToHistory({ type: 'info', title, message });
+    },
+    warning: (title: string, message?: string) => {
+      addNotification({ type: 'warning', title, message });
+      addToHistory({ type: 'warning', title, message });
+    },
+  }), [addNotification, addToHistory]);
 }

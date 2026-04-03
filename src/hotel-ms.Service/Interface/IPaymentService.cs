@@ -9,6 +9,7 @@ namespace hotelier_core_app.Service.Interface
     {
         // CRUD
         Task<BaseResponse<PaymentResponseDTO>> CreatePaymentAsync(CreatePaymentRequestDTO request, AuditLog auditLog);
+        Task<BaseResponse<PaymentResponseDTO>> CapturePaymentAsync(CreatePaymentRequestDTO request, AuditLog auditLog);
         Task<BaseResponse<PaymentResponseDTO>> GetPaymentByIdAsync(long paymentId);
         Task<PageBaseResponse<List<PaymentResponseDTO>>> GetPaymentsAsync(GetPaymentsInputDTO input);
 

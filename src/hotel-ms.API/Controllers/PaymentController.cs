@@ -47,6 +47,29 @@ namespace hotelier_core_app.API.Controllers
             return Ok(result);
         }
 
+        /// <summary>
+        /// Capture a payment and immediately advance it to Completed — use this at checkout.
+        /// </summary>
+        [HttpPost("capture")]
+        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Developer")]
+        [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<PaymentResponseDTO>))]
+        [ProducesResponseType((int)HttpStatusCode.BadRequest, Type = typeof(ValidationResultModel))]
+        public async Task<IActionResult> CapturePayment(CreatePaymentRequestDTO request)
+        {
+            var auditLog = new AuditLog
+            {
+                Action = UserAction.CapturePayment,
+                DatePerformed = DateTime.UtcNow,
+                PerformedBy = _tokenHelper.GetUserFullName(Request),
+                IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",
+                PerformerEmail = _tokenHelper.GetUserEmail(Request),
+                PerformedAgainst = request.ReservationId.ToString(),
+                MacAddress = _tokenHelper.GetMacAddress(Request)
+            };
+            var result = await _paymentService.CapturePaymentAsync(request, auditLog);
+            return Ok(result);
+        }
+
         [HttpGet("{id}")]
         [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Developer")]
         [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<PaymentResponseDTO>))]

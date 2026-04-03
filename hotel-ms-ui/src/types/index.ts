@@ -249,6 +249,28 @@ export interface CreateReservationRequest {
   specialRequests?: string;
 }
 
+// Payments - matches PaymentResponseDTO
+export type PaymentState = 'Pending' | 'Processing' | 'Completed' | 'Failed' | 'Refunded';
+export type PaymentTrigger = 'Process' | 'Complete' | 'Fail' | 'Retry' | 'Refund';
+
+export interface Payment {
+  id: number;
+  reservationId: number;
+  paymentMethod: string;
+  amount: number;
+  isSuccessful: boolean;
+  transactionId?: string;
+  paymentDate: string;
+  paymentState: PaymentState;
+}
+
+export interface CapturePaymentRequest {
+  reservationId: number;
+  paymentMethod: string;
+  amount: number;
+  transactionId?: string;
+}
+
 // Properties - matches PropertyResponseDTO
 export interface PropertyAddress {
   street?: string;

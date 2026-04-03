@@ -40,6 +40,7 @@
 
         // Payment Management
         public const string CreatePayment = "Create Payment";
+        public const string CapturePayment = "Capture Payment";
 
         // Service Request Management
         public const string CreateServiceRequest = "Create Service Request";

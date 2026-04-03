@@ -58,6 +58,42 @@ namespace hotelier_core_app.Service.Implementation
             return BaseResponse<PaymentResponseDTO>.Success(response, ResponseMessages.PaymentCreated, ResponseStatusCode.PaymentCreated);
         }
 
+        /// <summary>
+        /// Creates a payment and immediately advances it to Completed — used for point-of-sale capture at checkout.
+        /// </summary>
+        public async Task<BaseResponse<PaymentResponseDTO>> CapturePaymentAsync(CreatePaymentRequestDTO request, AuditLog auditLog)
+        {
+            var reservation = await _reservationQueryRepository.FindAsync(request.ReservationId);
+            if (reservation == null)
+                return BaseResponse<PaymentResponseDTO>.Failure(new PaymentResponseDTO(), ResponseMessages.ReservationNotFound, ResponseStatusCode.ReservationNotFound);
+
+            var payment = _mapper.Map<Payment>(request);
+            payment.PaymentDate = DateTime.UtcNow;
+            payment.PaymentState = PaymentState.Pending;
+            payment.IsSuccessful = false;
+
+            _paymentCommandRepository.Add(payment);
+            _auditLogCommandRepository.Add(auditLog);
+            await _paymentCommandRepository.SaveAsync();
+
+            // Advance Pending → Processing → Completed
+            payment.ConfigureStateMachine();
+            if (payment.StateMachine != null && payment.StateMachine.CanFire(PaymentTrigger.Process))
+            {
+                payment.StateMachine.Fire(PaymentTrigger.Process);
+                if (payment.StateMachine.CanFire(PaymentTrigger.Complete))
+                {
+                    payment.StateMachine.Fire(PaymentTrigger.Complete);
+                    payment.IsSuccessful = true;
+                }
+            }
+
+            await _paymentCommandRepository.UpdateAsync(payment);
+
+            var response = _mapper.Map<PaymentResponseDTO>(payment);
+            return BaseResponse<PaymentResponseDTO>.Success(response, ResponseMessages.PaymentCreated, ResponseStatusCode.PaymentCreated);
+        }
+
         public async Task<BaseResponse<PaymentResponseDTO>> GetPaymentByIdAsync(long paymentId)
         {
             var payment = await _paymentQueryRepository.FindAsync(paymentId);
@@ -120,6 +156,8 @@ namespace hotelier_core_app.Service.Implementation
             if (payment.StateMachine == null || !payment.StateMachine.CanFire(trigger))
                 return BaseResponse<PaymentStateResponseDTO>.Failure(new PaymentStateResponseDTO(), "Invalid trigger", ResponseStatusCode.InvalidData);
             payment.StateMachine.Fire(trigger);
+            if (trigger == PaymentTrigger.Complete)
+                payment.IsSuccessful = true;
             await _paymentCommandRepository.UpdateAsync(payment);
             var triggers = (await payment.StateMachine.PermittedTriggersAsync).ToList();
             var responseDto = new PaymentStateResponseDTO

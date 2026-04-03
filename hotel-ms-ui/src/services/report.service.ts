@@ -71,49 +71,57 @@ export interface FrontDeskSummary {
   pendingHousekeepingTasks: number;
 }
 
-function toUtcParam(dateStr: string): string {
-  return new Date(dateStr).toISOString();
+function toUtcStartOfDay(dateStr: string): string {
+  const d = new Date(dateStr);
+  d.setUTCHours(0, 0, 0, 0);
+  return d.toISOString();
+}
+
+function toUtcEndOfDay(dateStr: string): string {
+  const d = new Date(dateStr);
+  d.setUTCHours(23, 59, 59, 999);
+  return d.toISOString();
 }
 
 export const reportService = {
   async getOccupancy(from: string, to: string, propertyId?: number): Promise<OccupancyReport> {
     const response = await api.get<ApiResponse<OccupancyReport>>('/api/v1/reports/occupancy', {
-      params: { fromDate: toUtcParam(from), toDate: toUtcParam(to), propertyId },
+      params: { fromDate: toUtcStartOfDay(from), toDate: toUtcEndOfDay(to), propertyId },
     });
     return response.data.data;
   },
 
   async getRevenue(from: string, to: string, propertyId?: number): Promise<RevenueSummary> {
     const response = await api.get<ApiResponse<RevenueSummary>>('/api/v1/reports/revenue', {
-      params: { fromDate: toUtcParam(from), toDate: toUtcParam(to), propertyId },
+      params: { fromDate: toUtcStartOfDay(from), toDate: toUtcEndOfDay(to), propertyId },
     });
     return response.data.data;
   },
 
   async getReservationStats(from: string, to: string, propertyId?: number): Promise<ReservationStats> {
     const response = await api.get<ApiResponse<ReservationStats>>('/api/v1/reports/reservations', {
-      params: { fromDate: toUtcParam(from), toDate: toUtcParam(to), propertyId },
+      params: { fromDate: toUtcStartOfDay(from), toDate: toUtcEndOfDay(to), propertyId },
     });
     return response.data.data;
   },
 
   async getHousekeepingStats(date: string): Promise<HousekeepingStats> {
     const response = await api.get<ApiResponse<HousekeepingStats>>('/api/v1/reports/housekeeping', {
-      params: { date: toUtcParam(date) },
+      params: { date: toUtcStartOfDay(date) },
     });
     return response.data.data;
   },
 
   async getPaymentBreakdown(from: string, to: string): Promise<PaymentBreakdown> {
     const response = await api.get<ApiResponse<PaymentBreakdown>>('/api/v1/reports/payments', {
-      params: { fromDate: toUtcParam(from), toDate: toUtcParam(to) },
+      params: { fromDate: toUtcStartOfDay(from), toDate: toUtcEndOfDay(to) },
     });
     return response.data.data;
   },
 
   async getFrontDeskSummary(date?: string): Promise<FrontDeskSummary> {
     const response = await api.get<ApiResponse<FrontDeskSummary>>('/api/v1/reports/front-desk', {
-      params: date ? { date: toUtcParam(date) } : {},
+      params: date ? { date: toUtcStartOfDay(date) } : {},
     });
     return response.data.data;
   },

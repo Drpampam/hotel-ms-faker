@@ -84,17 +84,19 @@ namespace hotelier_core_app.Service.Implementation
         public async Task<BaseResponse<OccupancyReportDTO>> GetOccupancyReportAsync(DateTime fromDate, DateTime toDate, long? propertyId = null)
         {
             _logger.LogInformation("Generating {ReportType} report for schema {Schema}", "Occupancy", Schema);
+            fromDate = DateTime.SpecifyKind(fromDate, DateTimeKind.Utc);
+            toDate = DateTime.SpecifyKind(toDate, DateTimeKind.Utc);
             var schema = Schema;
             var propertyFilter = propertyId.HasValue ? "AND r.\"PropertyId\" = @PropertyId" : "";
 
             var sql = $@"
                 SELECT
                     COUNT(*) AS ""TotalRooms"",
-                    COUNT(*) FILTER (WHERE r.""State"" = 1) AS ""OccupiedRooms"",
-                    COUNT(*) FILTER (WHERE r.""State"" = 0) AS ""AvailableRooms"",
-                    COUNT(*) FILTER (WHERE r.""State"" = 2) AS ""CleaningRooms"",
-                    COUNT(*) FILTER (WHERE r.""State"" = 3) AS ""MaintenanceRooms""
-                FROM ""{schema}"".""Rooms"" r
+                    COUNT(*) FILTER (WHERE r.""RoomState"" = 1) AS ""OccupiedRooms"",
+                    COUNT(*) FILTER (WHERE r.""RoomState"" = 0) AS ""AvailableRooms"",
+                    COUNT(*) FILTER (WHERE r.""RoomState"" = 2) AS ""CleaningRooms"",
+                    COUNT(*) FILTER (WHERE r.""RoomState"" = 3) AS ""MaintenanceRooms""
+                FROM ""{schema}"".""Room"" r
                 WHERE r.""IsDeleted"" = false
                 {propertyFilter}";
 
@@ -124,10 +126,12 @@ namespace hotelier_core_app.Service.Implementation
         public async Task<BaseResponse<RevenueSummaryDTO>> GetRevenueSummaryAsync(DateTime fromDate, DateTime toDate, long? propertyId = null)
         {
             _logger.LogInformation("Generating {ReportType} report for schema {Schema}", "Revenue", Schema);
+            fromDate = DateTime.SpecifyKind(fromDate, DateTimeKind.Utc);
+            toDate = DateTime.SpecifyKind(toDate, DateTimeKind.Utc);
             var schema = Schema;
             var propertyJoin = propertyId.HasValue
-                ? $@"INNER JOIN ""{schema}"".""Reservations"" res ON i.""ReservationId"" = res.""Id"" AND res.""IsDeleted"" = false
-                     INNER JOIN ""{schema}"".""Rooms"" rm ON res.""RoomId"" = rm.""Id"" AND rm.""PropertyId"" = @PropertyId"
+                ? $@"INNER JOIN ""{schema}"".""Reservation"" res ON i.""ReservationId"" = res.""Id"" AND res.""IsDeleted"" = false
+                     INNER JOIN ""{schema}"".""Room"" rm ON res.""RoomId"" = rm.""Id"" AND rm.""PropertyId"" = @PropertyId"
                 : "";
 
             var sql = $@"
@@ -138,7 +142,7 @@ namespace hotelier_core_app.Service.Implementation
                     COALESCE(SUM(i.""DiscountAmount""), 0) AS ""TotalDiscountsApplied"",
                     COUNT(*) FILTER (WHERE i.""Status"" = 2) AS ""PaidInvoicesCount"",
                     COUNT(*) FILTER (WHERE i.""Status"" IN (0, 1)) AS ""PendingInvoicesCount""
-                FROM ""{schema}"".""Invoices"" i
+                FROM ""{schema}"".""Invoice"" i
                 {propertyJoin}
                 WHERE i.""IsDeleted"" = false
                   AND i.""IssueDate"" >= @FromDate
@@ -164,9 +168,11 @@ namespace hotelier_core_app.Service.Implementation
         public async Task<BaseResponse<ReservationStatsDTO>> GetReservationStatsAsync(DateTime fromDate, DateTime toDate, long? propertyId = null)
         {
             _logger.LogInformation("Generating {ReportType} report for schema {Schema}", "ReservationStats", Schema);
+            fromDate = DateTime.SpecifyKind(fromDate, DateTimeKind.Utc);
+            toDate = DateTime.SpecifyKind(toDate, DateTimeKind.Utc);
             var schema = Schema;
             var propertyJoin = propertyId.HasValue
-                ? $@"INNER JOIN ""{schema}"".""Rooms"" rm ON r.""RoomId"" = rm.""Id"" AND rm.""PropertyId"" = @PropertyId"
+                ? $@"INNER JOIN ""{schema}"".""Room"" rm ON r.""RoomId"" = rm.""Id"" AND rm.""PropertyId"" = @PropertyId"
                 : "";
 
             var sql = $@"
@@ -179,7 +185,7 @@ namespace hotelier_core_app.Service.Implementation
                     COUNT(*) FILTER (WHERE r.""Status"" = 4) AS ""CancelledCount"",
                     COUNT(*) FILTER (WHERE r.""Status"" = 5) AS ""NoShowCount"",
                     COALESCE(AVG(EXTRACT(DAY FROM r.""CheckOutDate"" - r.""CheckInDate"")), 0) AS ""AverageStayDays""
-                FROM ""{schema}"".""Reservations"" r
+                FROM ""{schema}"".""Reservation"" r
                 {propertyJoin}
                 WHERE r.""IsDeleted"" = false
                   AND r.""CheckInDate"" >= @FromDate
@@ -207,6 +213,7 @@ namespace hotelier_core_app.Service.Implementation
         public async Task<BaseResponse<HousekeepingStatsDTO>> GetHousekeepingStatsAsync(DateTime date)
         {
             _logger.LogInformation("Generating {ReportType} report for schema {Schema}", "HousekeepingStats", Schema);
+            date = DateTime.SpecifyKind(date, DateTimeKind.Utc);
             var schema = Schema;
             var sql = $@"
                 SELECT
@@ -215,7 +222,7 @@ namespace hotelier_core_app.Service.Implementation
                     COUNT(*) FILTER (WHERE h.""State"" = 1) AS ""InProgressTasks"",
                     COUNT(*) FILTER (WHERE h.""State"" = 2) AS ""CompletedTasks"",
                     COUNT(*) FILTER (WHERE h.""State"" = 3) AS ""SkippedTasks""
-                FROM ""{schema}"".""HousekeepingTasks"" h
+                FROM ""{schema}"".""HousekeepingTask"" h
                 WHERE h.""IsDeleted"" = false
                   AND DATE(h.""ScheduledAt"") = DATE(@Date)";
 
@@ -241,13 +248,15 @@ namespace hotelier_core_app.Service.Implementation
         public async Task<BaseResponse<PaymentBreakdownDTO>> GetPaymentBreakdownAsync(DateTime fromDate, DateTime toDate)
         {
             _logger.LogInformation("Generating {ReportType} report for schema {Schema}", "PaymentBreakdown", Schema);
+            fromDate = DateTime.SpecifyKind(fromDate, DateTimeKind.Utc);
+            toDate = DateTime.SpecifyKind(toDate, DateTimeKind.Utc);
             var schema = Schema;
 
             var totalSql = $@"
                 SELECT
                     COUNT(*) AS ""TotalPayments"",
                     COALESCE(SUM(p.""Amount""), 0) AS ""TotalAmount""
-                FROM ""{schema}"".""Payments"" p
+                FROM ""{schema}"".""Payment"" p
                 WHERE p.""IsDeleted"" = false
                   AND p.""CreationDate"" >= @FromDate
                   AND p.""CreationDate"" <= @ToDate";
@@ -257,7 +266,7 @@ namespace hotelier_core_app.Service.Implementation
                     p.""PaymentMethod"" AS ""Method"",
                     COUNT(*) AS ""Count"",
                     COALESCE(SUM(p.""Amount""), 0) AS ""Amount""
-                FROM ""{schema}"".""Payments"" p
+                FROM ""{schema}"".""Payment"" p
                 WHERE p.""IsDeleted"" = false
                   AND p.""CreationDate"" >= @FromDate
                   AND p.""CreationDate"" <= @ToDate
@@ -283,8 +292,9 @@ namespace hotelier_core_app.Service.Implementation
         public async Task<BaseResponse<FrontDeskSummaryDTO>> GetFrontDeskSummaryAsync(DateTime date)
         {
             _logger.LogInformation("Generating {ReportType} report for schema {Schema}", "FrontDesk", Schema);
+            date = DateTime.SpecifyKind(date, DateTimeKind.Utc);
             var schema = Schema;
-            var dateOnly = date.Date;
+            var dateOnly = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
 
             var sql = $@"
                 SELECT
@@ -293,15 +303,15 @@ namespace hotelier_core_app.Service.Implementation
                     COUNT(*) FILTER (WHERE DATE(r.""CheckOutDate"") = DATE(@Date) AND r.""Status"" IN (2, 3)) AS ""ExpectedDepartures"",
                     COUNT(*) FILTER (WHERE DATE(r.""CheckOutDate"") = DATE(@Date) AND r.""Status"" = 3) AS ""ActualCheckOuts"",
                     COUNT(*) FILTER (WHERE r.""Status"" = 2) AS ""CurrentlyOccupied""
-                FROM ""{schema}"".""Reservations"" r
+                FROM ""{schema}"".""Reservation"" r
                 WHERE r.""IsDeleted"" = false";
 
             var srSql = $@"
-                SELECT COUNT(*) FROM ""{schema}"".""ServiceRequests"" s
+                SELECT COUNT(*) FROM ""{schema}"".""ServiceRequest"" s
                 WHERE s.""IsDeleted"" = false AND s.""State"" = 0";
 
             var hkSql = $@"
-                SELECT COUNT(*) FROM ""{schema}"".""HousekeepingTasks"" h
+                SELECT COUNT(*) FROM ""{schema}"".""HousekeepingTask"" h
                 WHERE h.""IsDeleted"" = false AND h.""State"" = 0
                   AND DATE(h.""ScheduledAt"") = DATE(@Date)";
 

@@ -17,14 +17,12 @@ namespace hotelier_core_app.API.Controllers
     public class ReservationController : ControllerBase
     {
         private readonly IReservationService _reservationService;
-        private readonly IExpenseService _expenseService;
         private readonly ITokenService _tokenHelper;
         private readonly IHttpContextAccessor _accessor;
 
-        public ReservationController(IReservationService reservationService, IExpenseService expenseService, ITokenService tokenHelper, IHttpContextAccessor accessor)
+        public ReservationController(IReservationService reservationService, ITokenService tokenHelper, IHttpContextAccessor accessor)
         {
             _reservationService = reservationService;
-            _expenseService = expenseService;
             _tokenHelper = tokenHelper;
             _accessor = accessor;
         }
@@ -106,36 +104,6 @@ namespace hotelier_core_app.API.Controllers
         {
             var auditLog = BuildAuditLog(UserAction.OverrideReservationStatus, id.ToString());
             var result = await _reservationService.OverrideStatusAsync(id, status, auditLog);
-            return Ok(result);
-        }
-
-        [HttpPost("{id}/expenses")]
-        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Developer")]
-        [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<ReservationExpenseResponseDTO>))]
-        [ProducesResponseType((int)HttpStatusCode.BadRequest, Type = typeof(ValidationResultModel))]
-        public async Task<IActionResult> AddExpense(long id, [FromBody] AddReservationExpenseDTO request)
-        {
-            var auditLog = BuildAuditLog(UserAction.AddReservationExpense, id.ToString());
-            var result = await _expenseService.AddExpenseAsync(id, request, auditLog);
-            return Ok(result);
-        }
-
-        [HttpGet("{id}/expenses")]
-        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Developer")]
-        [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<List<ReservationExpenseResponseDTO>>))]
-        public async Task<IActionResult> GetExpenses(long id)
-        {
-            var result = await _expenseService.GetExpensesAsync(id);
-            return Ok(result);
-        }
-
-        [HttpDelete("{id}/expenses/{expenseId}")]
-        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Developer")]
-        [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<bool>))]
-        public async Task<IActionResult> DeleteExpense(long id, long expenseId)
-        {
-            var auditLog = BuildAuditLog(UserAction.DeleteReservationExpense, expenseId.ToString());
-            var result = await _expenseService.DeleteExpenseAsync(id, expenseId, auditLog);
             return Ok(result);
         }
 

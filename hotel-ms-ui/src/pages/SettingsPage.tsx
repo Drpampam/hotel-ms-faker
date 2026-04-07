@@ -3,10 +3,29 @@ import { User, Bell, Shield, Globe, Palette, Key, Save, Sun, Moon, Monitor } fro
 import { Card, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
 import { Badge } from '../components/ui/Badge';
-import { useAuthStore, useToast } from '../lib/store';
+import { useAuthStore, useThemeStore, useToast } from '../lib/store';
 import { useTheme } from '../hooks/useTheme';
 import { cn, getInitials } from '../lib/utils';
+
+const CURRENCIES = [
+  { value: 'USD', label: 'USD — US Dollar ($)' },
+  { value: 'EUR', label: 'EUR — Euro (€)' },
+  { value: 'GBP', label: 'GBP — British Pound (£)' },
+  { value: 'NGN', label: 'NGN — Nigerian Naira (₦)' },
+  { value: 'GHS', label: 'GHS — Ghanaian Cedi (₵)' },
+  { value: 'KES', label: 'KES — Kenyan Shilling (KSh)' },
+  { value: 'ZAR', label: 'ZAR — South African Rand (R)' },
+  { value: 'CAD', label: 'CAD — Canadian Dollar (CA$)' },
+  { value: 'AUD', label: 'AUD — Australian Dollar (A$)' },
+  { value: 'JPY', label: 'JPY — Japanese Yen (¥)' },
+  { value: 'CNY', label: 'CNY — Chinese Yuan (¥)' },
+  { value: 'INR', label: 'INR — Indian Rupee (₹)' },
+  { value: 'AED', label: 'AED — UAE Dirham (د.إ)' },
+  { value: 'SAR', label: 'SAR — Saudi Riyal (﷼)' },
+  { value: 'CHF', label: 'CHF — Swiss Franc (CHF)' },
+];
 
 const TABS = [
   { id: 'profile', label: 'Profile', icon: <User className="h-4 w-4" /> },
@@ -40,6 +59,7 @@ export function SettingsPage() {
   const [activeTab, setActiveTab] = useState('profile');
   const { user } = useAuthStore();
   const { theme, setTheme } = useTheme();
+  const { currency, setCurrency } = useThemeStore();
   const toast = useToast();
   const [isSaving, setIsSaving] = useState(false);
 
@@ -343,7 +363,12 @@ export function SettingsPage() {
                   </div>
                   <Input label="City" placeholder="City" />
                   <Input label="Country" placeholder="Country" />
-                  <Input label="Currency" defaultValue="USD" placeholder="e.g. USD, EUR" />
+                  <Select
+                    label="Currency"
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value)}
+                    options={CURRENCIES}
+                  />
                   <Input label="Timezone" defaultValue="America/New_York" placeholder="Timezone" />
                 </div>
 

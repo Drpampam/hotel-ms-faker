@@ -1,14 +1,16 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { useThemeStore } from './store';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number, currency = 'USD'): string {
+export function formatCurrency(amount: number, currency?: string): string {
+  const c = currency ?? useThemeStore.getState().currency ?? 'USD';
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency,
+    currency: c,
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);

@@ -122,6 +122,9 @@
         // Housekeeping
         public const string HousekeepingTaskNotFound = "084";
 
+        // Reservation Expenses
+        public const string ExpenseNotFound = "086";
+
         // Loyalty
         public const string LoyaltyRecordNotFound = "085";
     }

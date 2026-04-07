@@ -71,6 +71,10 @@
         public const string GenerateInvoice = "Generate Invoice";
         public const string VoidInvoice = "Void Invoice";
 
+        // Reservation Expenses
+        public const string AddReservationExpense = "Add Reservation Expense";
+        public const string DeleteReservationExpense = "Delete Reservation Expense";
+
         // Loyalty
         public const string RedeemLoyaltyPoints = "Redeem Loyalty Points";
     }

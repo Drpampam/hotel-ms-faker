@@ -62,14 +62,17 @@ export const useAuthStore = create<AuthStore>()(
 // Theme Store
 interface ThemeStore {
   theme: Theme;
+  currency: string;
   toggleTheme: () => void;
   setTheme: (theme: Theme) => void;
+  setCurrency: (currency: string) => void;
 }
 
 export const useThemeStore = create<ThemeStore>()(
   persist(
     (set, get) => ({
       theme: 'light',
+      currency: 'USD',
       toggleTheme: () => {
         const newTheme = get().theme === 'light' ? 'dark' : 'light';
         document.documentElement.classList.toggle('dark', newTheme === 'dark');
@@ -79,6 +82,7 @@ export const useThemeStore = create<ThemeStore>()(
         document.documentElement.classList.toggle('dark', theme === 'dark');
         set({ theme });
       },
+      setCurrency: (currency) => set({ currency }),
     }),
     {
       name: 'hotel-ms-theme',

@@ -23,6 +23,7 @@ namespace hotelier_core_app.Service.Implementation
         private readonly IDBQueryRepository<Discount> _discountQueryRepository;
         private readonly IDBCommandRepository<HousekeepingTask> _housekeepingTaskCommandRepository;
         private readonly IDBCommandRepository<AuditLog> _auditLogCommandRepository;
+        private readonly IDBQueryRepository<ReservationExpense> _expenseQueryRepository;
         private readonly INotificationService _notificationService;
         private readonly IMapper _mapper;
         private readonly IUtility _utility;
@@ -37,6 +38,7 @@ namespace hotelier_core_app.Service.Implementation
             IDBQueryRepository<Discount> discountQueryRepository,
             IDBCommandRepository<HousekeepingTask> housekeepingTaskCommandRepository,
             IDBCommandRepository<AuditLog> auditLogCommandRepository,
+            IDBQueryRepository<ReservationExpense> expenseQueryRepository,
             INotificationService notificationService,
             IMapper mapper,
             IUtility utility,
@@ -50,6 +52,7 @@ namespace hotelier_core_app.Service.Implementation
             _discountQueryRepository = discountQueryRepository;
             _housekeepingTaskCommandRepository = housekeepingTaskCommandRepository;
             _auditLogCommandRepository = auditLogCommandRepository;
+            _expenseQueryRepository = expenseQueryRepository;
             _notificationService = notificationService;
             _mapper = mapper;
             _utility = utility;
@@ -234,7 +237,8 @@ namespace hotelier_core_app.Service.Implementation
             if (reservation == null)
                 return BaseResponse<ReservationResponseDTO>.Failure(new ReservationResponseDTO(), ResponseMessages.ReservationNotFound, ResponseStatusCode.ReservationNotFound);
 
-            var response = BuildReservationResponse(reservation, reservation.Room, reservation.GuestProfile);
+            var expenses = await _expenseQueryRepository.GetByAsync(e => e.ReservationId == reservationId && !e.IsDeleted);
+            var response = BuildReservationResponse(reservation, reservation.Room, reservation.GuestProfile, expenses.ToList());
             return BaseResponse<ReservationResponseDTO>.Success(response, ResponseMessages.OperationSuccessful, ResponseStatusCode.OperationSuccessful);
         }
 
@@ -261,7 +265,14 @@ namespace hotelier_core_app.Service.Implementation
                 .Take(input.PageSize)
                 .ToListAsync();
 
-            var responses = paginated.Select(r => BuildReservationResponse(r, r.Room, r.GuestProfile)).ToList();
+            var reservationIds = paginated.Select(r => r.Id).ToList();
+            var allExpenses = reservationIds.Any()
+                ? (await _expenseQueryRepository.GetByAsync(e => reservationIds.Contains(e.ReservationId) && !e.IsDeleted)).ToList()
+                : new List<ReservationExpense>();
+
+            var responses = paginated.Select(r =>
+                BuildReservationResponse(r, r.Room, r.GuestProfile, allExpenses.Where(e => e.ReservationId == r.Id).ToList())
+            ).ToList();
 
             return PageBaseResponse<List<ReservationResponseDTO>>.Success(responses, ResponseMessages.ReservationsRetrieved,
                 count: responses.Count, totalPageCount: totalCount, pageSize: input.PageSize, pageNumber: input.PageNumber);
@@ -413,9 +424,10 @@ namespace hotelier_core_app.Service.Implementation
             return BaseResponse<ReservationResponseDTO>.Success(response, ResponseMessages.OperationSuccessful, ResponseStatusCode.OperationSuccessful);
         }
 
-        private ReservationResponseDTO BuildReservationResponse(Reservation reservation, Room? room, GuestProfile? guest)
+        private ReservationResponseDTO BuildReservationResponse(Reservation reservation, Room? room, GuestProfile? guest, List<ReservationExpense>? expenses = null)
         {
             int nights = (int)(reservation.CheckOutDate.Date - reservation.CheckInDate.Date).TotalDays;
+            var expenseList = expenses ?? new List<ReservationExpense>();
             return new ReservationResponseDTO
             {
                 Id = reservation.Id,
@@ -429,12 +441,25 @@ namespace hotelier_core_app.Service.Implementation
                 CheckOutDate = reservation.CheckOutDate,
                 NightsCount = nights,
                 TotalPrice = reservation.TotalPrice,
+                ExpensesTotal = expenseList.Sum(e => e.Amount),
                 Status = reservation.Status,
                 SpecialRequests = reservation.SpecialRequests,
                 DiscountId = reservation.DiscountId,
                 CreatedBy = reservation.CreatedBy,
                 CreationDate = reservation.CreationDate,
-                LastModifiedDate = reservation.LastModifiedDate
+                LastModifiedDate = reservation.LastModifiedDate,
+                Expenses = expenseList.Select(e => new ReservationExpenseResponseDTO
+                {
+                    Id = e.Id,
+                    ReservationId = e.ReservationId,
+                    Description = e.Description,
+                    Category = e.Category,
+                    Quantity = e.Quantity,
+                    UnitPrice = e.UnitPrice,
+                    Amount = e.Amount,
+                    CreatedBy = e.CreatedBy,
+                    CreationDate = e.CreationDate
+                }).ToList()
             };
         }
     }

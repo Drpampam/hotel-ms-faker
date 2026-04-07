@@ -29,6 +29,7 @@ namespace hotelier_core_app.Migrations
         public DbSet<PolicyModulePermission> PolicyModulePermissions { get; set; }
         public DbSet<Property> Properties { get; set; }
         public DbSet<Reservation> Reservations { get; set; }
+        public DbSet<ReservationExpense> ReservationExpenses { get; set; }
         public DbSet<Room> Rooms { get; set; }
         public DbSet<ServiceRequest> ServiceRequests { get; set; }
         public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }

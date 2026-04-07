@@ -210,6 +210,25 @@ export type ReservationState =
   | 'Cancelled'
   | 'NoShow';
 
+export interface ReservationExpense {
+  id: number;
+  reservationId: number;
+  description: string;
+  category?: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+  createdBy?: string;
+  creationDate?: string;
+}
+
+export interface AddReservationExpenseRequest {
+  description: string;
+  category?: string;
+  quantity: number;
+  unitPrice: number;
+}
+
 export interface Reservation {
   // Backend ReservationResponseDTO fields
   id: number;
@@ -223,6 +242,9 @@ export interface Reservation {
   checkOutDate: string;
   nightsCount: number;
   totalPrice: number;
+  expensesTotal: number;
+  grandTotal: number;
+  expenses: ReservationExpense[];
   status: ReservationStatus;
   specialRequests?: string;
   discountId?: number;

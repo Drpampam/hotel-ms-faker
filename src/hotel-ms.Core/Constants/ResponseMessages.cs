@@ -148,6 +148,13 @@
         public const string InvoiceAlreadyPaid = "This invoice has already been paid";
         public const string InvoicesRetrieved = "Invoices retrieved successfully";
 
+        // Reservation Expenses
+        public const string ExpenseAdded = "Expense added successfully";
+        public const string ExpenseDeleted = "Expense deleted successfully";
+        public const string ExpenseNotFound = "Expense not found";
+        public const string ExpensesRetrieved = "Expenses retrieved successfully";
+        public const string ExpenseReservationMismatch = "Expense does not belong to this reservation";
+
         // Loyalty
         public const string LoyaltyRecordNotFound = "Loyalty record not found";
         public const string InsufficientLoyaltyPoints = "Insufficient loyalty points for redemption";

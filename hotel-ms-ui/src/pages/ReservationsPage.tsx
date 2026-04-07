@@ -15,6 +15,8 @@ import {
   CheckCircle,
   Clock,
   XCircle,
+  Receipt,
+  Trash2,
 } from 'lucide-react';
 import { reservationService } from '../services/reservation.service';
 import { paymentService } from '../services/payment.service';
@@ -28,7 +30,7 @@ import { Table } from '../components/ui/Table';
 import { Modal } from '../components/ui/Modal';
 import { Card } from '../components/ui/Card';
 import { useToast } from '../lib/store';
-import type { Reservation, Guest, Room, CreateReservationRequest, Payment } from '../types';
+import type { Reservation, ReservationExpense, Guest, Room, CreateReservationRequest, Payment } from '../types';
 import { formatDate, formatCurrency, calculateNights, RESERVATION_STATUS_COLORS } from '../lib/utils';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -110,6 +112,26 @@ const paymentSchema = z.object({
 });
 type PaymentFormData = z.infer<typeof paymentSchema>;
 
+// ── Expense schema ───────────────────────────────────────────────────────────
+const expenseSchema = z.object({
+  description: z.string().min(1, 'Description is required').max(255),
+  category: z.string().optional(),
+  quantity: z.number({ invalid_type_error: 'Quantity is required' }).int().min(1, 'Quantity must be at least 1'),
+  unitPrice: z.number({ invalid_type_error: 'Unit price is required' }).min(0.01, 'Price must be greater than 0'),
+});
+type ExpenseFormData = z.infer<typeof expenseSchema>;
+
+const EXPENSE_CATEGORIES = [
+  { value: '', label: 'Select category...' },
+  { value: 'Food', label: 'Food & Beverage' },
+  { value: 'Minibar', label: 'Minibar' },
+  { value: 'Laundry', label: 'Laundry' },
+  { value: 'Spa', label: 'Spa & Wellness' },
+  { value: 'Transport', label: 'Transport' },
+  { value: 'Phone', label: 'Phone / Internet' },
+  { value: 'Other', label: 'Other' },
+];
+
 export function ReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [guests, setGuests] = useState<Guest[]>([]);
@@ -123,6 +145,9 @@ export function ReservationsPage() {
   const [paymentReservation, setPaymentReservation] = useState<Reservation | null>(null);
   const [reservationPayments, setReservationPayments] = useState<Payment[]>([]);
   const [isLoadingPayments, setIsLoadingPayments] = useState(false);
+  const [reservationExpenses, setReservationExpenses] = useState<ReservationExpense[]>([]);
+  const [isLoadingExpenses, setIsLoadingExpenses] = useState(false);
+  const [showAddExpense, setShowAddExpense] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const toast = useToast();
   useSlowConnection(isLoading);
@@ -167,6 +192,19 @@ export function ReservationsPage() {
     formState: { errors: paymentErrors },
   } = useForm<PaymentFormData>({ resolver: zodResolver(paymentSchema) });
 
+  // ── Expense form ─────────────────────────────────────────────────────────────
+  const {
+    register: registerExpense,
+    handleSubmit: handleExpense,
+    reset: resetExpense,
+    watch: watchExpense,
+    formState: { errors: expenseErrors },
+  } = useForm<ExpenseFormData>({ resolver: zodResolver(expenseSchema), defaultValues: { quantity: 1 } });
+
+  const expenseQty = watchExpense('quantity');
+  const expensePrice = watchExpense('unitPrice');
+  const expenseLineTotal = (expenseQty > 0 && expensePrice > 0) ? expenseQty * expensePrice : 0;
+
   // ── Data fetching ───────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -188,14 +226,24 @@ export function ReservationsPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Load payments when view modal opens
+  // Load payments and expenses when view modal opens
   useEffect(() => {
-    if (!viewReservation) { setReservationPayments([]); return; }
+    if (!viewReservation) {
+      setReservationPayments([]);
+      setReservationExpenses([]);
+      setShowAddExpense(false);
+      return;
+    }
     setIsLoadingPayments(true);
+    setIsLoadingExpenses(true);
     paymentService.getByReservation(viewReservation.id)
       .then(setReservationPayments)
       .catch(() => setReservationPayments([]))
       .finally(() => setIsLoadingPayments(false));
+    reservationService.getExpenses(viewReservation.id)
+      .then(setReservationExpenses)
+      .catch(() => setReservationExpenses([]))
+      .finally(() => setIsLoadingExpenses(false));
   }, [viewReservation]);
 
   // Pre-fill edit form when edit modal opens
@@ -209,12 +257,13 @@ export function ReservationsPage() {
     });
   }, [editReservation, resetEdit]);
 
-  // Pre-fill payment amount when payment modal opens
+  // Pre-fill payment amount when payment modal opens (use grandTotal = room + expenses)
   useEffect(() => {
     if (!paymentReservation) return;
+    const total = paymentReservation.grandTotal ?? paymentReservation.totalAmount ?? paymentReservation.totalPrice ?? 0;
     resetPayment({
       paymentMethod: '',
-      amount: paymentReservation.totalAmount ?? paymentReservation.totalPrice ?? 0,
+      amount: total,
       transactionId: '',
     });
   }, [paymentReservation, resetPayment]);
@@ -300,6 +349,44 @@ export function ReservationsPage() {
     }
   };
 
+  const onAddExpenseSubmit = async (data: ExpenseFormData) => {
+    if (!viewReservation) return;
+    setIsSubmitting(true);
+    try {
+      const newExpense = await reservationService.addExpense(viewReservation.id, {
+        description: data.description,
+        category: data.category || undefined,
+        quantity: data.quantity,
+        unitPrice: data.unitPrice,
+      });
+      setReservationExpenses((prev) => [...prev, newExpense]);
+      // Update viewReservation totals locally
+      const newExpensesTotal = reservationExpenses.reduce((s, e) => s + e.amount, 0) + newExpense.amount;
+      setViewReservation({ ...viewReservation, expensesTotal: newExpensesTotal, grandTotal: viewReservation.totalPrice + newExpensesTotal });
+      resetExpense({ quantity: 1, unitPrice: 0, description: '', category: '' });
+      setShowAddExpense(false);
+      toast.success('Expense added', `${data.description} (${formatCurrency(newExpense.amount)}) added to reservation`);
+    } catch (err) {
+      toast.error('Failed to add expense', err instanceof Error ? err.message : 'Please try again');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteExpense = async (expenseId: number) => {
+    if (!viewReservation) return;
+    try {
+      await reservationService.deleteExpense(viewReservation.id, expenseId);
+      const updated = reservationExpenses.filter((e) => e.id !== expenseId);
+      setReservationExpenses(updated);
+      const newExpensesTotal = updated.reduce((s, e) => s + e.amount, 0);
+      setViewReservation({ ...viewReservation, expensesTotal: newExpensesTotal, grandTotal: viewReservation.totalPrice + newExpensesTotal });
+      toast.success('Expense removed', 'Expense deleted from reservation');
+    } catch (err) {
+      toast.error('Failed to delete expense', err instanceof Error ? err.message : 'Please try again');
+    }
+  };
+
   const handleStatusChange = async (reservation: Reservation, status: string) => {
     if (status === 'CheckedOut') {
       // Intercept — show payment modal instead
@@ -368,7 +455,7 @@ export function ReservationsPage() {
       header: 'Amount',
       render: (r: Reservation) => (
         <span className="font-semibold text-slate-900 dark:text-slate-100">
-          {formatCurrency(r.totalAmount ?? 0)}
+          {formatCurrency(r.grandTotal ?? r.totalAmount ?? 0)}
         </span>
       ),
     },
@@ -566,7 +653,7 @@ export function ReservationsPage() {
                 { icon: <Calendar className="h-4 w-4" />, label: 'Check-in', value: formatDate(viewReservation.checkInDate) },
                 { icon: <Calendar className="h-4 w-4" />, label: 'Check-out', value: formatDate(viewReservation.checkOutDate) },
                 { icon: <User className="h-4 w-4" />, label: 'Guests', value: `${viewReservation.adults ?? 1} adult(s), ${viewReservation.children ?? 0} child(ren)` },
-                { icon: <DollarSign className="h-4 w-4" />, label: 'Total Amount', value: formatCurrency(viewReservation.totalAmount ?? 0) },
+                { icon: <DollarSign className="h-4 w-4" />, label: 'Total Amount', value: formatCurrency(viewReservation.grandTotal ?? viewReservation.totalAmount ?? 0) },
               ].map((item) => (
                 <div key={item.label} className="p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mb-1">
@@ -583,6 +670,134 @@ export function ReservationsPage() {
                 <p className="text-sm text-slate-800 dark:text-slate-200">{viewReservation.specialRequests}</p>
               </div>
             )}
+
+            {/* ── Expenses ───────────────────────────────────────────────── */}
+            <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+                  <Receipt className="h-3.5 w-3.5" /> Expenses
+                  {reservationExpenses.length > 0 && (
+                    <span className="ml-1 text-indigo-600 dark:text-indigo-400">
+                      ({formatCurrency(reservationExpenses.reduce((s, e) => s + e.amount, 0))})
+                    </span>
+                  )}
+                </p>
+                {!showAddExpense && (
+                  <button
+                    onClick={() => { setShowAddExpense(true); resetExpense({ quantity: 1 }); }}
+                    className="flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add
+                  </button>
+                )}
+              </div>
+
+              {/* Add expense inline form */}
+              {showAddExpense && (
+                <form
+                  onSubmit={handleExpense(onAddExpenseSubmit)}
+                  className="mb-3 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800 space-y-3"
+                >
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="col-span-2">
+                      <Input
+                        label="Description"
+                        placeholder="e.g. Room service dinner"
+                        {...registerExpense('description')}
+                        error={expenseErrors.description?.message}
+                      />
+                    </div>
+                    <Select
+                      label="Category"
+                      options={EXPENSE_CATEGORIES}
+                      {...registerExpense('category')}
+                    />
+                    <Input
+                      label="Unit Price"
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      {...registerExpense('unitPrice', { valueAsNumber: true })}
+                      error={expenseErrors.unitPrice?.message}
+                    />
+                    <Input
+                      label="Quantity"
+                      type="number"
+                      min={1}
+                      {...registerExpense('quantity', { valueAsNumber: true })}
+                      error={expenseErrors.quantity?.message}
+                    />
+                    <div className="flex items-end pb-1">
+                      {expenseLineTotal > 0 && (
+                        <p className="text-sm font-bold text-indigo-700 dark:text-indigo-300">
+                          = {formatCurrency(expenseLineTotal)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => { setShowAddExpense(false); resetExpense({ quantity: 1 }); }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" size="sm" isLoading={isSubmitting}>
+                      Add Expense
+                    </Button>
+                  </div>
+                </form>
+              )}
+
+              {isLoadingExpenses ? (
+                <p className="text-sm text-slate-400">Loading expenses...</p>
+              ) : reservationExpenses.length === 0 ? (
+                <p className="text-sm text-slate-400 italic">No expenses added yet.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {reservationExpenses.map((expense) => (
+                    <div key={expense.id} className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-700/50 rounded-lg group">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{expense.description}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {expense.category && <span className="mr-2">{expense.category}</span>}
+                          {expense.quantity} × {formatCurrency(expense.unitPrice)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 ml-2">
+                        <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">{formatCurrency(expense.amount)}</span>
+                        <button
+                          onClick={() => handleDeleteExpense(expense.id)}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-all"
+                          title="Remove expense"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {/* Totals summary */}
+                  <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-600 space-y-1">
+                    <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
+                      <span>Room charges</span>
+                      <span>{formatCurrency(viewReservation.totalPrice)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
+                      <span>Expenses</span>
+                      <span>{formatCurrency(reservationExpenses.reduce((s, e) => s + e.amount, 0))}</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-bold text-slate-800 dark:text-slate-100 pt-1">
+                      <span>Grand Total</span>
+                      <span className="text-indigo-600 dark:text-indigo-400">
+                        {formatCurrency(viewReservation.totalPrice + reservationExpenses.reduce((s, e) => s + e.amount, 0))}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Payment history */}
             <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
@@ -751,10 +966,22 @@ export function ReservationsPage() {
                   {formatDate(paymentReservation.checkInDate)} → {formatDate(paymentReservation.checkOutDate)}
                 </span>
               </div>
+              {(paymentReservation.expensesTotal ?? 0) > 0 && (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-500 dark:text-slate-400">Room charges</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">{formatCurrency(paymentReservation.totalPrice)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-500 dark:text-slate-400">Expenses</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">{formatCurrency(paymentReservation.expensesTotal ?? 0)}</span>
+                  </div>
+                </>
+              )}
               <div className="flex justify-between text-sm border-t border-slate-200 dark:border-slate-600 pt-2 mt-2">
                 <span className="font-semibold text-slate-700 dark:text-slate-300">Total Due</span>
                 <span className="font-bold text-lg text-indigo-600 dark:text-indigo-400">
-                  {formatCurrency(paymentReservation.totalAmount ?? 0)}
+                  {formatCurrency(paymentReservation.grandTotal ?? paymentReservation.totalAmount ?? 0)}
                 </span>
               </div>
             </div>

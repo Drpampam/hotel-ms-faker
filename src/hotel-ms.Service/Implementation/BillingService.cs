@@ -20,6 +20,7 @@ namespace hotelier_core_app.Service.Implementation
         private readonly IDBQueryRepository<Reservation> _reservationQueryRepository;
         private readonly IDBQueryRepository<Room> _roomQueryRepository;
         private readonly IDBQueryRepository<Payment> _paymentQueryRepository;
+        private readonly IDBQueryRepository<ReservationExpense> _expenseQueryRepository;
         private readonly IDBCommandRepository<AuditLog> _auditLogCommandRepository;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IUtility _utility;
@@ -32,6 +33,7 @@ namespace hotelier_core_app.Service.Implementation
             IDBQueryRepository<Reservation> reservationQueryRepository,
             IDBQueryRepository<Room> roomQueryRepository,
             IDBQueryRepository<Payment> paymentQueryRepository,
+            IDBQueryRepository<ReservationExpense> expenseQueryRepository,
             IDBCommandRepository<AuditLog> auditLogCommandRepository,
             UserManager<ApplicationUser> userManager,
             IUtility utility,
@@ -43,6 +45,7 @@ namespace hotelier_core_app.Service.Implementation
             _reservationQueryRepository = reservationQueryRepository;
             _roomQueryRepository = roomQueryRepository;
             _paymentQueryRepository = paymentQueryRepository;
+            _expenseQueryRepository = expenseQueryRepository;
             _auditLogCommandRepository = auditLogCommandRepository;
             _userManager = userManager;
             _utility = utility;
@@ -84,6 +87,20 @@ namespace hotelier_core_app.Service.Implementation
 
             // Service charges (completed service requests)
             var serviceRequests = await GetServiceCharges(reservationId, lineItems);
+
+            // Reservation expenses (food, laundry, minibar, etc.)
+            var expenses = await _expenseQueryRepository.GetByAsync(e => e.ReservationId == reservationId && !e.IsDeleted);
+            foreach (var expense in expenses)
+            {
+                lineItems.Add(new InvoiceLineItem
+                {
+                    Description = expense.Description,
+                    Category = expense.Category ?? "Expense",
+                    Quantity = expense.Quantity,
+                    UnitPrice = expense.UnitPrice,
+                    Amount = expense.Amount
+                });
+            }
 
             decimal subTotal = lineItems.Sum(l => l.Amount);
             decimal taxRate = 0.10m;  // 10% tax — configurable in future

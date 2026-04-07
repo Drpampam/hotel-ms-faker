@@ -1,5 +1,5 @@
 import api from '../lib/axios';
-import type { Reservation, CreateReservationRequest, ApiResponse, PageApiResponse } from '../types';
+import type { Reservation, ReservationExpense, AddReservationExpenseRequest, CreateReservationRequest, ApiResponse, PageApiResponse } from '../types';
 
 // Map backend ReservationResponseDTO to UI Reservation shape
 function mapReservation(r: {
@@ -14,6 +14,9 @@ function mapReservation(r: {
   checkOutDate: string;
   nightsCount: number;
   totalPrice: number;
+  expensesTotal?: number;
+  grandTotal?: number;
+  expenses?: ReservationExpense[];
   status?: string;
   specialRequests?: string;
   discountId?: number;
@@ -25,6 +28,9 @@ function mapReservation(r: {
     ...r,
     status: (r.status as Reservation['status']) ?? 'Pending',
     totalAmount: r.totalPrice,
+    expensesTotal: r.expensesTotal ?? 0,
+    grandTotal: r.grandTotal ?? r.totalPrice,
+    expenses: r.expenses ?? [],
     createdAt: r.creationDate ?? new Date().toISOString(),
     reservationNumber: `RES-${r.id}`,
   } as Reservation;
@@ -110,5 +116,28 @@ export const reservationService = {
       headers: { 'Content-Type': 'application/json' },
     });
     return mapReservation(response.data.data as Parameters<typeof mapReservation>[0]);
+  },
+
+  /**
+   * POST /api/v1/reservations/{id}/expenses — add expense to reservation
+   */
+  async addExpense(id: number, expense: AddReservationExpenseRequest): Promise<ReservationExpense> {
+    const response = await api.post<ApiResponse<ReservationExpense>>(`/api/v1/reservations/${id}/expenses`, expense);
+    return response.data.data;
+  },
+
+  /**
+   * GET /api/v1/reservations/{id}/expenses — get all expenses for reservation
+   */
+  async getExpenses(id: number): Promise<ReservationExpense[]> {
+    const response = await api.get<ApiResponse<ReservationExpense[]>>(`/api/v1/reservations/${id}/expenses`);
+    return response.data.data ?? [];
+  },
+
+  /**
+   * DELETE /api/v1/reservations/{id}/expenses/{expenseId}
+   */
+  async deleteExpense(id: number, expenseId: number): Promise<void> {
+    await api.delete(`/api/v1/reservations/${id}/expenses/${expenseId}`);
   },
 };

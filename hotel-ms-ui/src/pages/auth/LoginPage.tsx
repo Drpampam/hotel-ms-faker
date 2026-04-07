@@ -12,6 +12,7 @@ import { Input } from '../../components/ui/Input';
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(1, 'Password is required'),
+  rememberMe: z.boolean().optional(),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -35,6 +36,7 @@ export function LoginPage() {
     defaultValues: {
       email: '',
       password: '',
+      rememberMe: false,
     },
   });
 
@@ -53,24 +55,24 @@ export function LoginPage() {
 
       <div className="relative w-full max-w-md animate-slide-up">
         {/* Logo / Branding */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-600/30 mb-4">
-            <Hotel className="h-9 w-9 text-white" />
+        <div className="text-center mb-4">
+          <div className="inline-flex items-center justify-center w-12 h-12 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-600/30 mb-2">
+            <Hotel className="h-7 w-7 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white">
+          <h1 className="text-2xl font-bold text-white">
             Hotel<span className="text-indigo-400">MS</span>
           </h1>
-          <p className="text-slate-400 text-sm mt-1">Hotel Management System</p>
+          <p className="text-slate-400 text-xs mt-0.5">Hotel Management System</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white/10 backdrop-blur-xl rounded-3xl border border-white/20 p-8 shadow-2xl">
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold text-white">Welcome back</h2>
-            <p className="text-slate-400 text-sm mt-1">Sign in to your account to continue</p>
+        <div className="bg-white/10 backdrop-blur-xl rounded-3xl border border-white/20 p-6 shadow-2xl">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold text-white">Welcome back</h2>
+            <p className="text-slate-400 text-sm mt-0.5">Sign in to your account to continue</p>
           </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
             {/* Email */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">
@@ -126,8 +128,16 @@ export function LoginPage() {
               )}
             </div>
 
-            {/* Forgot password */}
-            <div className="flex justify-end">
+            {/* Remember me + Forgot password */}
+            <div className="flex items-center justify-between -mt-1">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  {...register('rememberMe')}
+                  type="checkbox"
+                  className="w-4 h-4 rounded border-white/20 bg-white/10 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-0 cursor-pointer"
+                />
+                <span className="text-xs text-slate-300">Remember me</span>
+              </label>
               <button
                 type="button"
                 className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
@@ -140,7 +150,7 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-11 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 disabled:cursor-not-allowed text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.98] shadow-lg shadow-indigo-600/30"
+              className="w-full h-10 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 disabled:cursor-not-allowed text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.98] shadow-lg shadow-indigo-600/30"
             >
               {isLoading ? (
                 <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -154,7 +164,7 @@ export function LoginPage() {
           </form>
 
           {/* Demo hint */}
-          <div className="mt-6 p-3 rounded-xl bg-white/5 border border-white/10">
+          <div className="mt-4 p-2.5 rounded-xl bg-white/5 border border-white/10">
             <p className="text-xs text-slate-400 text-center">
               Use your hotel system credentials to sign in
             </p>

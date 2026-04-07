@@ -1,11 +1,14 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using hotelier_core_app.Migrations;
 
 #nullable disable
 
 namespace hotelier_core_app.Migrations.Migrations
 {
-    [Microsoft.EntityFrameworkCore.DbContext(typeof(AppDbContext))]
+    [DbContext(typeof(AppDbContext))]
     [Migration("20260407000000_AddReservationExpense")]
     public partial class AddReservationExpense : Migration
     {

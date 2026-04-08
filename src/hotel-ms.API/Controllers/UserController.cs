@@ -55,6 +55,25 @@ namespace hotelier_core_app.API.Controllers
         }
 
         [AllowAnonymous]
+        [HttpPost("forgot-password")]
+        [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse))]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDTO model)
+        {
+            var result = await _userService.ForgotPasswordAsync(model.Email);
+            return Ok(result);
+        }
+
+        [AllowAnonymous]
+        [HttpPost("reset-password")]
+        [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse))]
+        [ProducesResponseType((int)HttpStatusCode.BadRequest, Type = typeof(ValidationResultModel))]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDTO model)
+        {
+            var result = await _userService.ResetPasswordAsync(model.Email, model.Token, model.NewPassword);
+            return Ok(result);
+        }
+
+        [AllowAnonymous]
         [HttpPost("create-user")]
         [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse))]
         [ProducesResponseType((int)HttpStatusCode.InternalServerError, Type = typeof(BaseResponse))]

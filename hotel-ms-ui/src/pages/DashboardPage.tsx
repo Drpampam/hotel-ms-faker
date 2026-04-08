@@ -17,87 +17,109 @@ import { RecentReservations } from '../components/dashboard/RecentReservations';
 import { Button } from '../components/ui/Button';
 import type { Reservation, DashboardStats, OccupancyDataPoint } from '../types';
 import { reservationService } from '../services/reservation.service';
-import { roomService } from '../services/room.service';
 import { guestService } from '../services/guest.service';
+import { reportService } from '../services/report.service';
 import { formatCurrency } from '../lib/utils';
 
-const MOCK_STATS: DashboardStats = {
-  totalRooms: 48,
-  availableRooms: 19,
-  occupiedRooms: 27,
-  activeReservations: 34,
-  totalGuests: 128,
-  revenueThisMonth: 42680,
-  occupancyRate: 72,
-  checkInsToday: 8,
-  checkOutsToday: 5,
-};
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
-function generateChartData(): OccupancyDataPoint[] {
+function monthStartStr(): string {
+  const d = new Date();
+  d.setDate(1);
+  return d.toISOString().slice(0, 10);
+}
+
+function sevenDaysAgoStr(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 6);
+  return d.toISOString().slice(0, 10);
+}
+
+function buildChartData(reservations: Reservation[]): OccupancyDataPoint[] {
   return Array.from({ length: 7 }, (_, i) => {
     const date = new Date();
     date.setDate(date.getDate() - (6 - i));
-    return {
-      date: date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
-      reservations: Math.floor(Math.random() * 25) + 8,
-      checkIns: Math.floor(Math.random() * 12) + 2,
-      checkOuts: Math.floor(Math.random() * 12) + 2,
-    };
+    const dayStr = date.toISOString().slice(0, 10);
+    const label = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+    const checkIns = reservations.filter((r) => r.checkInDate?.slice(0, 10) === dayStr).length;
+    const checkOuts = reservations.filter((r) => r.checkOutDate?.slice(0, 10) === dayStr).length;
+    const active = reservations.filter((r) => {
+      const cin = r.checkInDate?.slice(0, 10) ?? '';
+      const cout = r.checkOutDate?.slice(0, 10) ?? '';
+      return cin <= dayStr && cout >= dayStr && r.status !== 'Cancelled';
+    }).length;
+
+    return { date: label, reservations: active, checkIns, checkOuts };
   });
 }
 
+const EMPTY_STATS: DashboardStats = {
+  totalRooms: 0,
+  availableRooms: 0,
+  occupiedRooms: 0,
+  activeReservations: 0,
+  totalGuests: 0,
+  revenueThisMonth: 0,
+  occupancyRate: 0,
+  checkInsToday: 0,
+  checkOutsToday: 0,
+};
+
 export function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats>(MOCK_STATS);
+  const [stats, setStats] = useState<DashboardStats>(EMPTY_STATS);
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [chartData] = useState<OccupancyDataPoint[]>(generateChartData());
+  const [chartData, setChartData] = useState<OccupancyDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
-      try {
-        const [reservationList, roomList, guestList] = await Promise.allSettled([
-          reservationService.getAll(),
-          roomService.getAll(),
-          guestService.getAll(),
-        ]);
+      const today = todayStr();
+      const monthStart = monthStartStr();
+      const sevenDaysAgo = sevenDaysAgoStr();
 
-        const rooms = roomList.status === 'fulfilled' ? roomList.value : [];
-        const resList = reservationList.status === 'fulfilled' ? reservationList.value : [];
-        const guests = guestList.status === 'fulfilled' ? guestList.value : [];
+      const [
+        recentResResult,
+        guestResult,
+        occupancyResult,
+        revenueResult,
+        frontDeskResult,
+      ] = await Promise.allSettled([
+        // Fetch last 7 days of reservations for chart + today's activity
+        reservationService.getAll({ fromDate: sevenDaysAgo, pageSize: 500 }),
+        guestService.getAll({ pageSize: 9999 }),
+        reportService.getOccupancy(today, today),
+        reportService.getRevenue(monthStart, today),
+        reportService.getFrontDeskSummary(),
+      ]);
 
-        if (rooms.length > 0 || resList.length > 0 || guests.length > 0) {
-          const available = rooms.filter((r) => r.status === 'Available').length;
-          const occupied = rooms.filter((r) => r.status === 'Occupied').length;
-          const active = resList.filter(
-            (r) => r.status === 'Confirmed' || r.status === 'CheckedIn'
-          ).length;
-          const revenue = resList
-            .filter((r) => r.status !== 'Cancelled')
-            .reduce((sum, r) => sum + (r.totalAmount ?? 0), 0);
+      const resList = recentResResult.status === 'fulfilled' ? recentResResult.value : [];
+      const guests = guestResult.status === 'fulfilled' ? guestResult.value : [];
+      const occupancy = occupancyResult.status === 'fulfilled' ? occupancyResult.value : null;
+      const revenue = revenueResult.status === 'fulfilled' ? revenueResult.value : null;
+      const frontDesk = frontDeskResult.status === 'fulfilled' ? frontDeskResult.value : null;
 
-          setStats({
-            totalRooms: rooms.length || MOCK_STATS.totalRooms,
-            availableRooms: available || MOCK_STATS.availableRooms,
-            occupiedRooms: occupied || MOCK_STATS.occupiedRooms,
-            activeReservations: active || MOCK_STATS.activeReservations,
-            totalGuests: guests.length || MOCK_STATS.totalGuests,
-            revenueThisMonth: revenue || MOCK_STATS.revenueThisMonth,
-            occupancyRate:
-              rooms.length > 0
-                ? Math.round((occupied / rooms.length) * 100)
-                : MOCK_STATS.occupancyRate,
-            checkInsToday: MOCK_STATS.checkInsToday,
-            checkOutsToday: MOCK_STATS.checkOutsToday,
-          });
-          setReservations(resList);
-        }
-      } catch {
-        // Silently use mock data
-      } finally {
-        setIsLoading(false);
-      }
+      setStats({
+        totalRooms: occupancy?.totalRooms ?? 0,
+        availableRooms: occupancy?.availableRooms ?? 0,
+        occupiedRooms: occupancy?.occupiedRooms ?? 0,
+        // currentlyOccupied = rooms with guests right now (Status = CheckedIn); direct DB count
+        activeReservations: frontDesk?.currentlyOccupied ?? 0,
+        totalGuests: guests.length,
+        revenueThisMonth: revenue?.totalRevenue ?? 0,
+        occupancyRate: occupancy?.occupancyRate ?? 0,
+        checkInsToday: frontDesk?.actualCheckIns ?? 0,
+        checkOutsToday: frontDesk?.actualCheckOuts ?? 0,
+      });
+
+      setReservations(resList);
+      setChartData(buildChartData(resList));
+      setIsLoading(false);
     };
+
     fetchData();
   }, []);
 
@@ -147,8 +169,6 @@ export function DashboardPage() {
           title="Total Rooms"
           value={stats.totalRooms}
           icon={<BedDouble className="h-6 w-6" />}
-          change={0}
-          changeLabel="vs last month"
           color="indigo"
           isLoading={isLoading}
           suffix={`/ ${stats.availableRooms} available`}
@@ -157,8 +177,6 @@ export function DashboardPage() {
           title="Active Reservations"
           value={stats.activeReservations}
           icon={<CalendarCheck className="h-6 w-6" />}
-          change={12}
-          changeLabel="vs last week"
           color="blue"
           isLoading={isLoading}
         />
@@ -166,8 +184,6 @@ export function DashboardPage() {
           title="Total Guests"
           value={stats.totalGuests}
           icon={<Users className="h-6 w-6" />}
-          change={8}
-          changeLabel="vs last month"
           color="violet"
           isLoading={isLoading}
         />
@@ -175,8 +191,6 @@ export function DashboardPage() {
           title="Revenue This Month"
           value={formatCurrency(stats.revenueThisMonth)}
           icon={<DollarSign className="h-6 w-6" />}
-          change={15}
-          changeLabel="vs last month"
           color="emerald"
           isLoading={isLoading}
         />
@@ -253,9 +267,9 @@ export function DashboardPage() {
             </p>
             <div className="space-y-2.5">
               {[
-                { label: 'Available', count: stats.availableRooms, color: 'bg-emerald-500', pct: Math.round((stats.availableRooms / stats.totalRooms) * 100) },
-                { label: 'Occupied', count: stats.occupiedRooms, color: 'bg-blue-500', pct: Math.round((stats.occupiedRooms / stats.totalRooms) * 100) },
-                { label: 'Maintenance', count: stats.totalRooms - stats.availableRooms - stats.occupiedRooms, color: 'bg-amber-500', pct: 100 - Math.round((stats.availableRooms / stats.totalRooms) * 100) - Math.round((stats.occupiedRooms / stats.totalRooms) * 100) },
+                { label: 'Available', count: stats.availableRooms, color: 'bg-emerald-500', pct: stats.totalRooms > 0 ? Math.round((stats.availableRooms / stats.totalRooms) * 100) : 0 },
+                { label: 'Occupied', count: stats.occupiedRooms, color: 'bg-blue-500', pct: stats.totalRooms > 0 ? Math.round((stats.occupiedRooms / stats.totalRooms) * 100) : 0 },
+                { label: 'Maintenance', count: Math.max(0, stats.totalRooms - stats.availableRooms - stats.occupiedRooms), color: 'bg-amber-500', pct: stats.totalRooms > 0 ? Math.max(0, 100 - Math.round((stats.availableRooms / stats.totalRooms) * 100) - Math.round((stats.occupiedRooms / stats.totalRooms) * 100)) : 0 },
               ].map((s) => (
                 <div key={s.label}>
                   <div className="flex items-center justify-between text-xs mb-1">

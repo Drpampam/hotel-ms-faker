@@ -4,10 +4,12 @@ using hotelier_core_app.Core.Helpers.Interface;
 using hotelier_core_app.Core.States;
 using hotelier_core_app.Domain.Commands.Interface;
 using hotelier_core_app.Domain.Queries.Interface;
+using hotelier_core_app.Migrations;
 using hotelier_core_app.Model.DTOs.Request;
 using hotelier_core_app.Model.DTOs.Response;
 using hotelier_core_app.Model.Entities;
 using hotelier_core_app.Service.Interface;
+using Microsoft.EntityFrameworkCore;
 
 namespace hotelier_core_app.Service.Implementation
 {
@@ -20,6 +22,8 @@ namespace hotelier_core_app.Service.Implementation
         private readonly IDBQueryRepository<Payment> _paymentQueryRepository;
         private readonly IDBQueryRepository<Reservation> _reservationQueryRepository;
         private readonly IDBCommandRepository<AuditLog> _auditLogCommandRepository;
+        private readonly INotificationService _notificationService;
+        private readonly AppDbContext _context;
         private readonly IMapper _mapper;
         private readonly IUtility _utility;
 
@@ -28,6 +32,8 @@ namespace hotelier_core_app.Service.Implementation
             IDBQueryRepository<Payment> paymentQueryRepository,
             IDBQueryRepository<Reservation> reservationQueryRepository,
             IDBCommandRepository<AuditLog> auditLogCommandRepository,
+            INotificationService notificationService,
+            AppDbContext context,
             IMapper mapper,
             IUtility utility)
         {
@@ -35,6 +41,8 @@ namespace hotelier_core_app.Service.Implementation
             _paymentQueryRepository = paymentQueryRepository;
             _reservationQueryRepository = reservationQueryRepository;
             _auditLogCommandRepository = auditLogCommandRepository;
+            _notificationService = notificationService;
+            _context = context;
             _mapper = mapper;
             _utility = utility;
         }
@@ -89,6 +97,10 @@ namespace hotelier_core_app.Service.Implementation
             }
 
             await _paymentCommandRepository.UpdateAsync(payment);
+
+            // Fire-and-forget: notify company of completed payment
+            if (payment.IsSuccessful)
+                _ = Task.Run(() => SendPaymentNotificationAsync(payment));
 
             var response = _mapper.Map<PaymentResponseDTO>(payment);
             return BaseResponse<PaymentResponseDTO>.Success(response, ResponseMessages.PaymentCreated, ResponseStatusCode.PaymentCreated);
@@ -157,7 +169,10 @@ namespace hotelier_core_app.Service.Implementation
                 return BaseResponse<PaymentStateResponseDTO>.Failure(new PaymentStateResponseDTO(), "Invalid trigger", ResponseStatusCode.InvalidData);
             payment.StateMachine.Fire(trigger);
             if (trigger == PaymentTrigger.Complete)
+            {
                 payment.IsSuccessful = true;
+                _ = Task.Run(() => SendPaymentNotificationAsync(payment));
+            }
             await _paymentCommandRepository.UpdateAsync(payment);
             var triggers = (await payment.StateMachine.PermittedTriggersAsync).ToList();
             var responseDto = new PaymentStateResponseDTO
@@ -182,6 +197,26 @@ namespace hotelier_core_app.Service.Implementation
             payment.ConfigureStateMachine();
             var triggers = payment.StateMachine != null ? (await payment.StateMachine.PermittedTriggersAsync).ToList() : new List<PaymentTrigger>();
             return BaseResponse<List<PaymentTrigger>>.Success(triggers, "Available triggers fetched successfully", ResponseStatusCode.OperationSuccessful);
+        }
+
+        private async Task SendPaymentNotificationAsync(Payment payment)
+        {
+            try
+            {
+                var reservation = await _reservationQueryRepository.FindAsync(payment.ReservationId);
+                if (reservation == null) return;
+
+                var guest = await _context.GuestProfiles.FindAsync(reservation.GuestId);
+                await _notificationService.SendPaymentCompletedAlertAsync(
+                    payment,
+                    reservation,
+                    guest?.FullName ?? "Guest",
+                    guest?.Email ?? "N/A");
+            }
+            catch
+            {
+                // Notification failures must never affect the payment response
+            }
         }
     }
 }

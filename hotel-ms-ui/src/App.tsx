@@ -7,6 +7,7 @@ import { ToastNotifications } from './components/ui/ToastNotifications';
 
 // Eager load login since it's the entry point
 import { LoginPage } from './pages/auth/LoginPage';
+import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
 
 // Lazy load all protected pages for better performance
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
@@ -27,6 +28,7 @@ function App() {
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* Protected routes */}
         <Route

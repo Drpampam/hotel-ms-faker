@@ -42,19 +42,8 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   );
 }
 
-const MOCK_DATA: OccupancyDataPoint[] = Array.from({ length: 7 }, (_, i) => {
-  const date = new Date();
-  date.setDate(date.getDate() - (6 - i));
-  return {
-    date: date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
-    reservations: Math.floor(Math.random() * 30) + 10,
-    checkIns: Math.floor(Math.random() * 15) + 3,
-    checkOuts: Math.floor(Math.random() * 15) + 3,
-  };
-});
-
 export function OccupancyChart({ data, isLoading = false }: OccupancyChartProps) {
-  const chartData = data.length > 0 ? data : MOCK_DATA;
+  const chartData = data;
 
   if (isLoading) {
     return (
@@ -64,6 +53,20 @@ export function OccupancyChart({ data, isLoading = false }: OccupancyChartProps)
         </CardHeader>
         <div className="h-72 flex items-center justify-center">
           <div className="w-full h-full bg-slate-100 dark:bg-slate-700 rounded-xl animate-pulse" />
+        </div>
+      </Card>
+    );
+  }
+
+  if (chartData.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Reservations — Last 7 Days</CardTitle>
+          <span className="text-xs text-slate-400 dark:text-slate-500">Daily overview</span>
+        </CardHeader>
+        <div className="h-72 flex items-center justify-center text-slate-400 dark:text-slate-500 text-sm">
+          No reservation data available
         </div>
       </Card>
     );

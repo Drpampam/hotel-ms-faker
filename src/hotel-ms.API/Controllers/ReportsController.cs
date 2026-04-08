@@ -19,7 +19,7 @@ namespace hotelier_core_app.API.Controllers
         }
 
         [HttpGet("occupancy")]
-        [Authorize(Roles = "Admin,SuperAdmin,Developer")]
+        [Authorize]
         [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<OccupancyReportDTO>))]
         public async Task<IActionResult> GetOccupancyReport(
             [FromQuery] DateTime fromDate,
@@ -75,7 +75,7 @@ namespace hotelier_core_app.API.Controllers
         }
 
         [HttpGet("front-desk")]
-        [Authorize(Roles = "Admin,SuperAdmin,Developer")]
+        [Authorize]
         [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<FrontDeskSummaryDTO>))]
         public async Task<IActionResult> GetFrontDeskSummary([FromQuery] DateTime? date = null)
         {

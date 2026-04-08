@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace hotelier_core_app.Service.Implementation
@@ -37,6 +38,7 @@ namespace hotelier_core_app.Service.Implementation
         private readonly IDBCommandRepository<Tenant> _tenantCommandRepository;
         private readonly IDBCommandRepository<ApplicationUserRole> _userRoleCommandRepository;
         private readonly IEmailService _emailService;
+        private readonly INotificationService _notificationService;
         private readonly IMapper _mapper;
         private readonly string _clientUrl;
         private const string HOTELIER_ADMIN = "Hotelier Admin";
@@ -51,6 +53,7 @@ namespace hotelier_core_app.Service.Implementation
             IDBCommandRepository<Tenant> tenantCommandRepository,
             IDBCommandRepository<ApplicationUserRole> userRoleCommandRepository,
             IEmailService emailService,
+            INotificationService notificationService,
             IMapper mapper,
             IConfiguration config,
             IModuleService moduleService)
@@ -62,8 +65,9 @@ namespace hotelier_core_app.Service.Implementation
             _tenantCommandRepository = tenantCommandRepository;
             _userRoleCommandRepository = userRoleCommandRepository;
             _emailService = emailService;
+            _notificationService = notificationService;
             _mapper = mapper;
-            _clientUrl = config.GetSection("Client:ClientURI").Value ?? string.Empty;
+            _clientUrl = config.GetSection("Client:ClientURI").Value ?? "http://localhost:3000/";
             _moduleService = moduleService;
         }
 
@@ -535,6 +539,49 @@ namespace hotelier_core_app.Service.Implementation
                 return BaseResponse.Failure(ResponseMessages.UserInactive, ResponseStatusCode.UserInactive);
             }
             return BaseResponse.Failure(ResponseMessages.UserDoesNotExist, ResponseStatusCode.UserDoesNotExist);
+        }
+
+        public async Task<BaseResponse> ForgotPasswordAsync(string email)
+        {
+            // Always return success to prevent user enumeration attacks
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user == null || !user.IsActive)
+                return BaseResponse.Success("If that email is registered you will receive a reset link shortly.", ResponseStatusCode.OperationSuccessful);
+
+            var rawToken = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(rawToken));
+
+            var resetLink = $"{_clientUrl.TrimEnd('/')}reset-password?email={Uri.EscapeDataString(email)}&token={encodedToken}";
+
+            _ = Task.Run(() => _notificationService.SendPasswordResetAsync(email, user.FullName ?? email, resetLink));
+
+            return BaseResponse.Success("If that email is registered you will receive a reset link shortly.", ResponseStatusCode.OperationSuccessful);
+        }
+
+        public async Task<BaseResponse> ResetPasswordAsync(string email, string token, string newPassword)
+        {
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user == null)
+                return BaseResponse.Failure(ResponseMessages.UserDoesNotExist, ResponseStatusCode.UserDoesNotExist);
+
+            string rawToken;
+            try
+            {
+                rawToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token));
+            }
+            catch
+            {
+                return BaseResponse.Failure("Invalid or malformed reset token.", ResponseStatusCode.InvalidData);
+            }
+
+            var result = await _userManager.ResetPasswordAsync(user, rawToken, newPassword);
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(" ", result.Errors.Select(e => e.Description));
+                return BaseResponse.Failure(errors, ResponseStatusCode.OperationFailed);
+            }
+
+            return BaseResponse.Success("Password reset successfully. You can now sign in with your new password.", ResponseStatusCode.OperationSuccessful);
         }
 
         #region private methods

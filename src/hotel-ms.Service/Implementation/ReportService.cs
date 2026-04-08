@@ -376,7 +376,7 @@ namespace hotelier_core_app.Service.Implementation
                     e.""ReservationId"",
                     g.""FullName"" AS ""GuestName"",
                     g.""Email"" AS ""GuestEmail"",
-                    rm.""RoomNumber"",
+                    rm.""Number"" AS ""RoomNumber"",
                     e.""Description"",
                     e.""Category"",
                     e.""Quantity"",

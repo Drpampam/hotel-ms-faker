@@ -157,6 +157,13 @@ namespace hotelier_core_app.Service.Implementation
             if (!string.IsNullOrEmpty(guest?.Email))
                 _ = _notificationService.SendReservationConfirmedAsync(reservation, guest.Email, guest.FullName ?? guest.Email);
 
+            // Notify the hotel company about the new booking
+            _ = _notificationService.SendNewBookingAlertAsync(
+                reservation,
+                guest?.FullName ?? "Guest",
+                guest?.Email ?? "N/A",
+                room.Number ?? room.Id.ToString());
+
             var response = BuildReservationResponse(reservation, room, guest);
             return BaseResponse<ReservationResponseDTO>.Success(response, ResponseMessages.ReservationCreated, ResponseStatusCode.ReservationCreated);
         }

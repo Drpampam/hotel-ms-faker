@@ -27,5 +27,8 @@ namespace hotelier_core_app.Service.Interface
         Task<BaseResponse<ApplicationUserDTO>> GetUserByEmail(string email);
 
         Task<BaseResponse<List<ModuleGroupDTO>>> GetAssignedModules(string emailAddress);
+
+        Task<BaseResponse> ForgotPasswordAsync(string email);
+        Task<BaseResponse> ResetPasswordAsync(string email, string token, string newPassword);
     }
 }

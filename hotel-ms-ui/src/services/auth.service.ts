@@ -67,6 +67,34 @@ export const authService = {
     return { token, refreshToken: newRefreshToken };
   },
 
+  /**
+   * POST /api/v1/User/forgot-password — sends password reset email
+   */
+  async forgotPassword(email: string): Promise<{ success: boolean; message: string }> {
+    const response = await api.post<{ status: boolean; message?: string }>(
+      '/api/v1/User/forgot-password',
+      { email }
+    );
+    return {
+      success: response.data?.status ?? false,
+      message: response.data?.message ?? 'Reset link sent.',
+    };
+  },
+
+  /**
+   * POST /api/v1/User/reset-password — resets password with token
+   */
+  async resetPassword(email: string, token: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    const response = await api.post<{ status: boolean; message?: string }>(
+      '/api/v1/User/reset-password',
+      { email, token, newPassword }
+    );
+    return {
+      success: response.data?.status ?? false,
+      message: response.data?.message ?? 'Password reset.',
+    };
+  },
+
   logout() {
     localStorage.removeItem('hotel_ms_token');
     localStorage.removeItem('hotel_ms_user');

@@ -553,7 +553,7 @@ namespace hotelier_core_app.Service.Implementation
 
             var resetLink = $"{_clientUrl.TrimEnd('/')}reset-password?email={Uri.EscapeDataString(email)}&token={encodedToken}";
 
-            _ = Task.Run(() => _notificationService.SendPasswordResetAsync(email, user.FullName ?? email, resetLink));
+            _ = _notificationService.SendPasswordResetAsync(email, user.FullName ?? email, resetLink);
 
             return BaseResponse.Success("If that email is registered you will receive a reset link shortly.", ResponseStatusCode.OperationSuccessful);
         }

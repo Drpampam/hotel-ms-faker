@@ -98,9 +98,15 @@ namespace hotelier_core_app.Service.Implementation
 
             await _paymentCommandRepository.UpdateAsync(payment);
 
-            // Fire-and-forget: notify company of completed payment
+            // Fire-and-forget: notify company of completed payment (data already in scope)
             if (payment.IsSuccessful)
-                _ = Task.Run(() => SendPaymentNotificationAsync(payment));
+            {
+                var guest = await _context.GuestProfiles.FindAsync(reservation.GuestId);
+                _ = _notificationService.SendPaymentCompletedAlertAsync(
+                    payment, reservation,
+                    guest?.FullName ?? "Guest",
+                    guest?.Email ?? "N/A");
+            }
 
             var response = _mapper.Map<PaymentResponseDTO>(payment);
             return BaseResponse<PaymentResponseDTO>.Success(response, ResponseMessages.PaymentCreated, ResponseStatusCode.PaymentCreated);
@@ -171,7 +177,15 @@ namespace hotelier_core_app.Service.Implementation
             if (trigger == PaymentTrigger.Complete)
             {
                 payment.IsSuccessful = true;
-                _ = Task.Run(() => SendPaymentNotificationAsync(payment));
+                var reservation = await _reservationQueryRepository.FindAsync(payment.ReservationId);
+                if (reservation != null)
+                {
+                    var guest = await _context.GuestProfiles.FindAsync(reservation.GuestId);
+                    _ = _notificationService.SendPaymentCompletedAlertAsync(
+                        payment, reservation,
+                        guest?.FullName ?? "Guest",
+                        guest?.Email ?? "N/A");
+                }
             }
             await _paymentCommandRepository.UpdateAsync(payment);
             var triggers = (await payment.StateMachine.PermittedTriggersAsync).ToList();
@@ -199,24 +213,5 @@ namespace hotelier_core_app.Service.Implementation
             return BaseResponse<List<PaymentTrigger>>.Success(triggers, "Available triggers fetched successfully", ResponseStatusCode.OperationSuccessful);
         }
 
-        private async Task SendPaymentNotificationAsync(Payment payment)
-        {
-            try
-            {
-                var reservation = await _reservationQueryRepository.FindAsync(payment.ReservationId);
-                if (reservation == null) return;
-
-                var guest = await _context.GuestProfiles.FindAsync(reservation.GuestId);
-                await _notificationService.SendPaymentCompletedAlertAsync(
-                    payment,
-                    reservation,
-                    guest?.FullName ?? "Guest",
-                    guest?.Email ?? "N/A");
-            }
-            catch
-            {
-                // Notification failures must never affect the payment response
-            }
-        }
     }
 }

@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Navigate } from 'react-router-dom';
-import { Eye, EyeOff, Hotel, Lock, Mail, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, Hotel, Lock, Mail, ArrowRight, XCircle } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useAuthStore } from '../../lib/store';
 import { Button } from '../../components/ui/Button';
@@ -19,6 +19,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const { login, isLoading } = useAuth();
   const { isAuthenticated, token } = useAuthStore();
 
@@ -41,7 +42,11 @@ export function LoginPage() {
   });
 
   const onSubmit = async (data: LoginFormData) => {
+    setLoginError(null);
     const result = await login(data);
+    if (!result?.success) {
+      setLoginError(result?.message ?? 'Invalid email or password');
+    }
     if (result?.success && 'PasswordCredential' in window) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -154,6 +159,14 @@ export function LoginPage() {
                 Forgot password?
               </button>
             </div>
+
+            {/* Login error */}
+            {loginError && (
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                <XCircle className="h-4 w-4 flex-shrink-0" />
+                <span>{loginError}</span>
+              </div>
+            )}
 
             {/* Submit */}
             <button

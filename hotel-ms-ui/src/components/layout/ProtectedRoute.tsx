@@ -19,3 +19,22 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   return <>{children}</>;
 }
+
+interface RoleRouteProps {
+  children: React.ReactNode;
+  allowedRoles: string[];
+}
+
+/** Wraps a route that should only be accessible to specific roles.
+ *  Redirects to /dashboard if the current user's role is not in allowedRoles. */
+export function RoleRoute({ children, allowedRoles }: RoleRouteProps) {
+  const { user } = useAuthStore();
+  const userRoles: string[] = user?.roles ?? [];
+  const hasRole = allowedRoles.some((r) => userRoles.includes(r));
+
+  if (!hasRole) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <>{children}</>;
+}

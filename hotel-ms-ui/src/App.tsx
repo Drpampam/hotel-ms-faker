@@ -1,8 +1,9 @@
 import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
-import { ProtectedRoute } from './components/layout/ProtectedRoute';
+import { ProtectedRoute, RoleRoute } from './components/layout/ProtectedRoute';
 import { PageLoader } from './components/ui/Spinner';
+import { ToastNotifications } from './components/ui/ToastNotifications';
 
 // Eager load login since it's the entry point
 import { LoginPage } from './pages/auth/LoginPage';
@@ -21,6 +22,8 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 function App() {
   return (
     <BrowserRouter>
+      {/* Global toast — renders on every page including login */}
+      <ToastNotifications />
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
@@ -69,17 +72,21 @@ function App() {
           <Route
             path="/users"
             element={
-              <Suspense fallback={<PageLoader />}>
-                <UsersPage />
-              </Suspense>
+              <RoleRoute allowedRoles={['SuperAdmin', 'Admin', 'Developer']}>
+                <Suspense fallback={<PageLoader />}>
+                  <UsersPage />
+                </Suspense>
+              </RoleRoute>
             }
           />
           <Route
             path="/properties"
             element={
-              <Suspense fallback={<PageLoader />}>
-                <PropertiesPage />
-              </Suspense>
+              <RoleRoute allowedRoles={['SuperAdmin', 'Admin', 'Developer']}>
+                <Suspense fallback={<PageLoader />}>
+                  <PropertiesPage />
+                </Suspense>
+              </RoleRoute>
             }
           />
           <Route
@@ -93,9 +100,11 @@ function App() {
           <Route
             path="/reports"
             element={
-              <Suspense fallback={<PageLoader />}>
-                <ReportsPage />
-              </Suspense>
+              <RoleRoute allowedRoles={['SuperAdmin', 'Admin', 'Developer']}>
+                <Suspense fallback={<PageLoader />}>
+                  <ReportsPage />
+                </Suspense>
+              </RoleRoute>
             }
           />
           <Route

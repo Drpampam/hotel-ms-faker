@@ -20,22 +20,34 @@ import { useSidebarStore } from '../../lib/store';
 import { useAuth } from '../../hooks/useAuth';
 import { getInitials, getFullName } from '../../lib/utils';
 
-const navItems = [
-  { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { label: 'Reservations', path: '/reservations', icon: CalendarCheck },
-  { label: 'Rooms', path: '/rooms', icon: BedDouble },
-  { label: 'Guests', path: '/guests', icon: UserCircle },
-  { label: 'Housekeeping', path: '/housekeeping', icon: Sparkles },
-  { label: 'Properties', path: '/properties', icon: Building2 },
-  { label: 'Users', path: '/users', icon: Users },
-  { label: 'Reports', path: '/reports', icon: BarChart3 },
-  { label: 'Settings', path: '/settings', icon: Settings },
+type NavItem = {
+  label: string;
+  path: string;
+  icon: React.ElementType;
+  roles?: string[]; // undefined = accessible by all authenticated users
+};
+
+const ALL_NAV_ITEMS: NavItem[] = [
+  { label: 'Dashboard',    path: '/dashboard',    icon: LayoutDashboard },
+  { label: 'Reservations', path: '/reservations', icon: CalendarCheck,  roles: ['SuperAdmin', 'Admin', 'FrontDesk', 'Developer'] },
+  { label: 'Rooms',        path: '/rooms',        icon: BedDouble,      roles: ['SuperAdmin', 'Admin', 'FrontDesk', 'Housekeeping', 'Developer'] },
+  { label: 'Guests',       path: '/guests',       icon: UserCircle,     roles: ['SuperAdmin', 'Admin', 'FrontDesk', 'Developer'] },
+  { label: 'Housekeeping', path: '/housekeeping', icon: Sparkles,       roles: ['SuperAdmin', 'Admin', 'FrontDesk', 'Housekeeping', 'Developer'] },
+  { label: 'Properties',   path: '/properties',   icon: Building2,      roles: ['SuperAdmin', 'Admin', 'Developer'] },
+  { label: 'Users',        path: '/users',        icon: Users,          roles: ['SuperAdmin', 'Admin', 'Developer'] },
+  { label: 'Reports',      path: '/reports',      icon: BarChart3,      roles: ['SuperAdmin', 'Admin', 'Developer'] },
+  { label: 'Settings',     path: '/settings',     icon: Settings },
 ];
 
 export function Sidebar() {
   const { isCollapsed, isMobileOpen, toggleCollapse, closeMobile } = useSidebarStore();
   const { user, logout } = useAuth();
   const location = useLocation();
+
+  const userRoles: string[] = user?.roles ?? [];
+  const navItems = ALL_NAV_ITEMS.filter(
+    (item) => !item.roles || item.roles.some((r) => userRoles.includes(r))
+  );
 
   const nameParts = (user?.fullName ?? '').trim().split(/\s+/);
   const initials = user

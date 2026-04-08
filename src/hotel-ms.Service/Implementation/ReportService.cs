@@ -1,3 +1,4 @@
+using Dapper;
 using hotelier_core_app.Core.Constants;
 using hotelier_core_app.Domain.Executers;
 using hotelier_core_app.Migrations;
@@ -409,7 +410,13 @@ namespace hotelier_core_app.Service.Implementation
                 GROUP BY COALESCE(e.""Category"", 'Uncategorized')
                 ORDER BY ""Amount"" DESC";
 
-            var param = new { FromDate = fromDate, ToDate = toDate, Search = $"%{search}%", ReservationId = reservationId };
+            var param = new Dapper.DynamicParameters();
+            param.Add("FromDate", fromDate, System.Data.DbType.DateTime2);
+            param.Add("ToDate", toDate, System.Data.DbType.DateTime2);
+            if (reservationId.HasValue)
+                param.Add("ReservationId", reservationId.Value, System.Data.DbType.Int64);
+            else if (!string.IsNullOrWhiteSpace(search))
+                param.Add("Search", $"%{search}%", System.Data.DbType.String);
 
             var rawItems = await _executers.ExecuteReaderAsync<ExpenseReportItemQueryResult>(_connStr, itemsSql, param);
             var rawCategories = await _executers.ExecuteReaderAsync<ExpenseCategorySummaryQueryResult>(_connStr, categorySql, param);

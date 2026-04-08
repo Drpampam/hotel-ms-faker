@@ -1,4 +1,3 @@
-using Dapper;
 using hotelier_core_app.Core.Constants;
 using hotelier_core_app.Domain.Executers;
 using hotelier_core_app.Migrations;
@@ -410,13 +409,15 @@ namespace hotelier_core_app.Service.Implementation
                 GROUP BY COALESCE(e.""Category"", 'Uncategorized')
                 ORDER BY ""Amount"" DESC";
 
-            var param = new Dapper.DynamicParameters();
-            param.Add("FromDate", fromDate, System.Data.DbType.DateTime2);
-            param.Add("ToDate", toDate, System.Data.DbType.DateTime2);
+            // Build params without unused nullables — Npgsql throws when it
+            // can't infer a PostgreSQL type for a null anonymous-object property.
+            object param;
             if (reservationId.HasValue)
-                param.Add("ReservationId", reservationId.Value, System.Data.DbType.Int64);
+                param = new { FromDate = fromDate, ToDate = toDate, ReservationId = reservationId.Value };
             else if (!string.IsNullOrWhiteSpace(search))
-                param.Add("Search", $"%{search}%", System.Data.DbType.String);
+                param = new { FromDate = fromDate, ToDate = toDate, Search = $"%{search}%" };
+            else
+                param = new { FromDate = fromDate, ToDate = toDate };
 
             var rawItems = await _executers.ExecuteReaderAsync<ExpenseReportItemQueryResult>(_connStr, itemsSql, param);
             var rawCategories = await _executers.ExecuteReaderAsync<ExpenseCategorySummaryQueryResult>(_connStr, categorySql, param);

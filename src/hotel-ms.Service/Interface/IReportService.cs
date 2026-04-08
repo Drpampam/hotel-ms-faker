@@ -10,5 +10,6 @@ namespace hotelier_core_app.Service.Interface
         Task<BaseResponse<HousekeepingStatsDTO>> GetHousekeepingStatsAsync(DateTime date);
         Task<BaseResponse<PaymentBreakdownDTO>> GetPaymentBreakdownAsync(DateTime fromDate, DateTime toDate);
         Task<BaseResponse<FrontDeskSummaryDTO>> GetFrontDeskSummaryAsync(DateTime date);
+        Task<BaseResponse<ExpenseReportDTO>> GetExpenseReportAsync(DateTime fromDate, DateTime toDate, string? search = null, long? reservationId = null);
     }
 }

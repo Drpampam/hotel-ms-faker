@@ -71,6 +71,36 @@ export interface FrontDeskSummary {
   pendingHousekeepingTasks: number;
 }
 
+export interface ExpenseReportItem {
+  id: number;
+  reservationId: number;
+  guestName: string | null;
+  guestEmail: string | null;
+  roomNumber: string | null;
+  description: string;
+  category: string | null;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+  createdBy: string | null;
+  creationDate: string;
+}
+
+export interface ExpenseCategorySummary {
+  category: string;
+  count: number;
+  amount: number;
+}
+
+export interface ExpenseReport {
+  items: ExpenseReportItem[];
+  totalItems: number;
+  totalAmount: number;
+  byCategory: ExpenseCategorySummary[];
+  fromDate: string;
+  toDate: string;
+}
+
 function toUtcStartOfDay(dateStr: string): string {
   const d = new Date(dateStr);
   d.setUTCHours(0, 0, 0, 0);
@@ -122,6 +152,18 @@ export const reportService = {
   async getFrontDeskSummary(date?: string): Promise<FrontDeskSummary> {
     const response = await api.get<ApiResponse<FrontDeskSummary>>('/api/v1/reports/front-desk', {
       params: date ? { date: toUtcStartOfDay(date) } : {},
+    });
+    return response.data.data;
+  },
+
+  async getExpenseReport(from: string, to: string, search?: string, reservationId?: number): Promise<ExpenseReport> {
+    const response = await api.get<ApiResponse<ExpenseReport>>('/api/v1/reports/expenses', {
+      params: {
+        fromDate: toUtcStartOfDay(from),
+        toDate: toUtcEndOfDay(to),
+        ...(search ? { search } : {}),
+        ...(reservationId ? { reservationId } : {}),
+      },
     });
     return response.data.data;
   },

@@ -72,6 +72,29 @@ namespace hotelier_core_app.Service.Implementation
             public decimal TotalAmount { get; set; }
         }
 
+        private class ExpenseReportItemQueryResult
+        {
+            public long Id { get; set; }
+            public long ReservationId { get; set; }
+            public string? GuestName { get; set; }
+            public string? GuestEmail { get; set; }
+            public string? RoomNumber { get; set; }
+            public string Description { get; set; } = string.Empty;
+            public string? Category { get; set; }
+            public int Quantity { get; set; }
+            public decimal UnitPrice { get; set; }
+            public decimal Amount { get; set; }
+            public string? CreatedBy { get; set; }
+            public DateTime CreationDate { get; set; }
+        }
+
+        private class ExpenseCategorySummaryQueryResult
+        {
+            public string Category { get; set; } = string.Empty;
+            public long Count { get; set; }
+            public decimal Amount { get; set; }
+        }
+
         private class FrontDeskQueryResult
         {
             public long ExpectedArrivals { get; set; }
@@ -332,6 +355,103 @@ namespace hotelier_core_app.Service.Implementation
             };
 
             return BaseResponse<FrontDeskSummaryDTO>.Success(dto, ResponseMessages.ReportGenerated, ResponseStatusCode.OperationSuccessful);
+        }
+
+        public async Task<BaseResponse<ExpenseReportDTO>> GetExpenseReportAsync(DateTime fromDate, DateTime toDate, string? search = null, long? reservationId = null)
+        {
+            _logger.LogInformation("Generating {ReportType} report for schema {Schema}", "Expenses", Schema);
+            fromDate = DateTime.SpecifyKind(fromDate, DateTimeKind.Utc);
+            toDate = DateTime.SpecifyKind(toDate, DateTimeKind.Utc);
+            var schema = Schema;
+
+            var searchFilter = "";
+            if (reservationId.HasValue)
+                searchFilter = "AND e.\"ReservationId\" = @ReservationId";
+            else if (!string.IsNullOrWhiteSpace(search))
+                searchFilter = "AND (g.\"FullName\" ILIKE @Search OR CAST(e.\"ReservationId\" AS text) = @Search)";
+
+            var itemsSql = $@"
+                SELECT
+                    e.""Id"",
+                    e.""ReservationId"",
+                    g.""FullName"" AS ""GuestName"",
+                    g.""Email"" AS ""GuestEmail"",
+                    rm.""RoomNumber"",
+                    e.""Description"",
+                    e.""Category"",
+                    e.""Quantity"",
+                    e.""UnitPrice"",
+                    e.""Amount"",
+                    e.""CreatedBy"",
+                    e.""CreationDate""
+                FROM ""{schema}"".""ReservationExpense"" e
+                INNER JOIN ""{schema}"".""Reservation"" r ON e.""ReservationId"" = r.""Id"" AND r.""IsDeleted"" = false
+                LEFT JOIN ""{schema}"".""GuestProfile"" g ON r.""GuestId"" = g.""Id""
+                LEFT JOIN ""{schema}"".""Room"" rm ON r.""RoomId"" = rm.""Id""
+                WHERE e.""IsDeleted"" = false
+                  AND e.""CreationDate"" >= @FromDate
+                  AND e.""CreationDate"" <= @ToDate
+                {searchFilter}
+                ORDER BY e.""CreationDate"" DESC";
+
+            var categorySql = $@"
+                SELECT
+                    COALESCE(e.""Category"", 'Uncategorized') AS ""Category"",
+                    COUNT(*) AS ""Count"",
+                    COALESCE(SUM(e.""Amount""), 0) AS ""Amount""
+                FROM ""{schema}"".""ReservationExpense"" e
+                INNER JOIN ""{schema}"".""Reservation"" r ON e.""ReservationId"" = r.""Id"" AND r.""IsDeleted"" = false
+                LEFT JOIN ""{schema}"".""GuestProfile"" g ON r.""GuestId"" = g.""Id""
+                WHERE e.""IsDeleted"" = false
+                  AND e.""CreationDate"" >= @FromDate
+                  AND e.""CreationDate"" <= @ToDate
+                {searchFilter}
+                GROUP BY COALESCE(e.""Category"", 'Uncategorized')
+                ORDER BY ""Amount"" DESC";
+
+            var param = new { FromDate = fromDate, ToDate = toDate, Search = $"%{search}%", ReservationId = reservationId };
+
+            var rawItems = await _executers.ExecuteReaderAsync<ExpenseReportItemQueryResult>(_connStr, itemsSql, param);
+            var rawCategories = await _executers.ExecuteReaderAsync<ExpenseCategorySummaryQueryResult>(_connStr, categorySql, param);
+
+            var items = (rawItems ?? Enumerable.Empty<ExpenseReportItemQueryResult>())
+                .Select(i => new ExpenseReportItemDTO
+                {
+                    Id = i.Id,
+                    ReservationId = i.ReservationId,
+                    GuestName = i.GuestName,
+                    GuestEmail = i.GuestEmail,
+                    RoomNumber = i.RoomNumber,
+                    Description = i.Description,
+                    Category = i.Category,
+                    Quantity = i.Quantity,
+                    UnitPrice = i.UnitPrice,
+                    Amount = i.Amount,
+                    CreatedBy = i.CreatedBy,
+                    CreationDate = i.CreationDate,
+                })
+                .ToList();
+
+            var categories = (rawCategories ?? Enumerable.Empty<ExpenseCategorySummaryQueryResult>())
+                .Select(c => new ExpenseCategorySummary
+                {
+                    Category = c.Category,
+                    Count = c.Count,
+                    Amount = c.Amount,
+                })
+                .ToList();
+
+            var dto = new ExpenseReportDTO
+            {
+                Items = items,
+                TotalItems = items.Count,
+                TotalAmount = items.Sum(i => i.Amount),
+                ByCategory = categories,
+                FromDate = fromDate,
+                ToDate = toDate,
+            };
+
+            return BaseResponse<ExpenseReportDTO>.Success(dto, ResponseMessages.ReportGenerated, ResponseStatusCode.OperationSuccessful);
         }
     }
 }

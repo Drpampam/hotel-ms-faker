@@ -41,7 +41,16 @@ export function LoginPage() {
   });
 
   const onSubmit = async (data: LoginFormData) => {
-    await login(data);
+    const result = await login(data);
+    if (result?.success && 'PasswordCredential' in window) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const cred = new (window as any).PasswordCredential({ id: data.email, password: data.password, name: data.email });
+        await navigator.credentials.store(cred);
+      } catch {
+        // Credential Management API not supported or blocked — silently ignore
+      }
+    }
   };
 
   return (
@@ -72,7 +81,7 @@ export function LoginPage() {
             <p className="text-slate-400 text-sm mt-0.5">Sign in to your account to continue</p>
           </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+          <form onSubmit={handleSubmit(onSubmit)} autoComplete="on" className="space-y-3">
             {/* Email */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">

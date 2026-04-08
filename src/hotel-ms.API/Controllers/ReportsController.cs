@@ -82,5 +82,18 @@ namespace hotelier_core_app.API.Controllers
             var result = await _reportService.GetFrontDeskSummaryAsync(date ?? DateTime.UtcNow);
             return Ok(result);
         }
+
+        [HttpGet("expenses")]
+        [Authorize(Roles = "Admin,SuperAdmin,Developer")]
+        [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<ExpenseReportDTO>))]
+        public async Task<IActionResult> GetExpenseReport(
+            [FromQuery] DateTime fromDate,
+            [FromQuery] DateTime toDate,
+            [FromQuery] string? search = null,
+            [FromQuery] long? reservationId = null)
+        {
+            var result = await _reportService.GetExpenseReportAsync(fromDate, toDate, search, reservationId);
+            return Ok(result);
+        }
     }
 }

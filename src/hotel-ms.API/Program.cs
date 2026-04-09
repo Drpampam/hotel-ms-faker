@@ -187,7 +187,24 @@ builder.Host.UseServiceProviderFactory(new AutofacServiceProviderFactory())
 
 var app = builder.Build();
 
-DatabaseSeeder.Seeder(app.Services).Wait();
+// Retry the seeder so transient "DNS not ready" errors on Render don't crash startup
+{
+    const int maxAttempts = 5;
+    for (int attempt = 1; attempt <= maxAttempts; attempt++)
+    {
+        try
+        {
+            DatabaseSeeder.Seeder(app.Services).Wait();
+            break;
+        }
+        catch (Exception ex) when (attempt < maxAttempts)
+        {
+            var delay = TimeSpan.FromSeconds(Math.Pow(2, attempt)); // 2s, 4s, 8s, 16s
+            Console.WriteLine($"[Seeder] Attempt {attempt} failed: {ex.GetBaseException().Message}. Retrying in {delay.TotalSeconds}s…");
+            Thread.Sleep(delay);
+        }
+    }
+}
 
 // Configure the HTTP request pipeline.
 app.UseSwagger();

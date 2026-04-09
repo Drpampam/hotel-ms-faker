@@ -10,6 +10,11 @@ function mapUser(r: {
   lastActiveDate?: string;
   lastModifiedDate?: string;
   userRoles?: Array<{ id: number; name: string }>;
+  isActive?: boolean;
+  phoneNumber?: string;
+  shift?: string;
+  department?: string;
+  picture?: string;
 }): User {
   const parts = (r.fullName ?? '').trim().split(/\s+/);
   const firstName = parts[0] ?? r.email ?? '';
@@ -17,7 +22,7 @@ function mapUser(r: {
   const primaryRole = r.userRoles?.[0]?.name ?? 'Admin';
 
   return {
-    id: r.email ?? '',   // backend uses email as identifier
+    id: r.email ?? '',
     email: r.email ?? '',
     fullName: r.fullName,
     firstName,
@@ -26,7 +31,11 @@ function mapUser(r: {
     userRoles: r.userRoles,
     status: r.status,
     tenantId: 1,
-    isActive: r.status !== 'Inactive',
+    isActive: r.isActive ?? r.status !== 'Inactive',
+    phoneNumber: r.phoneNumber,
+    shift: r.shift,
+    department: r.department,
+    picture: r.picture,
     createdAt: r.creationDate ?? new Date().toISOString(),
     creationDate: r.creationDate,
     lastActiveDate: r.lastActiveDate,
@@ -35,9 +44,6 @@ function mapUser(r: {
 }
 
 export const userService = {
-  /**
-   * POST /api/v1/User/get-users — body: { pageNumber, pageSize }
-   */
   async getAll(params?: { pageNumber?: number; pageSize?: number }): Promise<User[]> {
     const response = await api.post<PageApiResponse<unknown[]>>('/api/v1/User/get-users', {
       pageNumber: params?.pageNumber ?? 1,
@@ -48,9 +54,6 @@ export const userService = {
     return raw.map((r) => mapUser(r as Parameters<typeof mapUser>[0]));
   },
 
-  /**
-   * GET /api/v1/User/get-user-by-email?email=...
-   */
   async getByEmail(email: string): Promise<User> {
     const response = await api.get<ApiResponse<unknown>>('/api/v1/User/get-user-by-email', {
       params: { email },
@@ -58,17 +61,10 @@ export const userService = {
     return mapUser(response.data.data as Parameters<typeof mapUser>[0]);
   },
 
-  /**
-   * POST /api/v1/User/create-user — body: CreateUserRequestDTO
-   * { email, fullName, phoneNumber, password, role, hotelName?, subscriptionPlanId? }
-   */
   async create(user: CreateUserRequest): Promise<void> {
     await api.post('/api/v1/User/create-user', user);
   },
 
-  /**
-   * PUT /api/v1/User/update-user — body: EditUserDetailRequestDTO
-   */
   async update(user: { email: string; fullName: string; roles: string[] }): Promise<void> {
     await api.put('/api/v1/User/update-user', {
       email: user.email,
@@ -77,30 +73,30 @@ export const userService = {
     });
   },
 
-  /**
-   * PUT /api/v1/User/activate-user — body: { email }
-   */
   async activate(email: string): Promise<void> {
     await api.put('/api/v1/User/activate-user', { email });
   },
 
-  /**
-   * PUT /api/v1/User/deactivate-user — body: { email }
-   */
   async deactivate(email: string): Promise<void> {
     await api.put('/api/v1/User/deactivate-user', { email });
   },
 
-  /**
-   * PUT /api/v1/User/reassign-role — body: { email, roles: string[] }
-   */
   async reassignRole(email: string, roles: string[]): Promise<void> {
     await api.put('/api/v1/User/reassign-role', { email, roles });
   },
 
-  /**
-   * GET /api/v1/User/get-assigned-modules?email=...
-   */
+  async adminChangePassword(email: string, newPassword: string): Promise<void> {
+    await api.put('/api/v1/User/admin-change-password', { email, newPassword });
+  },
+
+  async deleteUser(email: string): Promise<void> {
+    await api.delete('/api/v1/User/delete-user', { data: { email } });
+  },
+
+  async changeShift(email: string, shift: string | null, department: string | null): Promise<void> {
+    await api.put('/api/v1/User/change-shift', { email, shift, department });
+  },
+
   async getAssignedModules(email: string) {
     const response = await api.get('/api/v1/User/get-assigned-modules', { params: { email } });
     return response.data;

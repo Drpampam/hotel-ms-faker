@@ -93,6 +93,12 @@ namespace hotelier_core_app.Model.Entities
         /// Gets or sets the tenant entity associated with the user.
         /// </summary>
         public Tenant? Tenant { get; set; }
+        [StringLength(50)]
+        public string? Shift { get; set; }
+
+        [StringLength(100)]
+        public string? Department { get; set; }
+
         public ICollection<ApplicationUserPolicyGroup> UserPolicyGroups { get; set; } = new List<ApplicationUserPolicyGroup>();
 
         public ApplicationUser()

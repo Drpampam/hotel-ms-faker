@@ -210,6 +210,66 @@ namespace hotelier_core_app.API.Controllers
             return Ok(response);
         }
 
+        [HttpPut("admin-change-password")]
+        [Authorize(Roles = "SuperAdmin,Admin,Developer")]
+        [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse))]
+        [ProducesResponseType((int)HttpStatusCode.BadRequest, Type = typeof(ValidationResultModel))]
+        public async Task<IActionResult> AdminChangePassword([FromBody] AdminChangePasswordRequestDTO model)
+        {
+            var auditLog = new AuditLog
+            {
+                Action = UserAction.AdminChangePassword,
+                DatePerformed = DateTime.UtcNow,
+                PerformedBy = _tokenHelper.GetUserFullName(Request),
+                PerformerEmail = _tokenHelper.GetUserEmail(Request),
+                PerformedAgainst = model.Email,
+                IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",
+                MacAddress = _tokenHelper.GetMacAddress(Request)
+            };
+            var response = await _userService.AdminChangePasswordAsync(model, auditLog);
+            return Ok(response);
+        }
+
+        [HttpDelete("delete-user")]
+        [Authorize(Roles = "SuperAdmin,Admin,Developer")]
+        [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse))]
+        [ProducesResponseType((int)HttpStatusCode.BadRequest, Type = typeof(ValidationResultModel))]
+        public async Task<IActionResult> DeleteUser([FromBody] DeleteUserRequestDTO model)
+        {
+            var auditLog = new AuditLog
+            {
+                Action = UserAction.DeleteUser,
+                DatePerformed = DateTime.UtcNow,
+                PerformedBy = _tokenHelper.GetUserFullName(Request),
+                PerformerEmail = _tokenHelper.GetUserEmail(Request),
+                PerformedAgainst = model.Email,
+                IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",
+                MacAddress = _tokenHelper.GetMacAddress(Request)
+            };
+            var response = await _userService.DeleteUserAsync(model, auditLog);
+            return Ok(response);
+        }
+
+        [HttpPut("change-shift")]
+        [Authorize(Roles = "SuperAdmin,Admin,Developer")]
+        [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse))]
+        [ProducesResponseType((int)HttpStatusCode.BadRequest, Type = typeof(ValidationResultModel))]
+        public async Task<IActionResult> ChangeShift([FromBody] ChangeUserShiftRequestDTO model)
+        {
+            var auditLog = new AuditLog
+            {
+                Action = UserAction.ChangeUserShift,
+                DatePerformed = DateTime.UtcNow,
+                PerformedBy = _tokenHelper.GetUserFullName(Request),
+                PerformerEmail = _tokenHelper.GetUserEmail(Request),
+                PerformedAgainst = model.Email,
+                IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",
+                MacAddress = _tokenHelper.GetMacAddress(Request)
+            };
+            var response = await _userService.ChangeUserShiftAsync(model, auditLog);
+            return Ok(response);
+        }
+
         [HttpGet("get-user-by-email")]
         [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<ApplicationUserDTO>))]
         [ProducesResponseType((int)HttpStatusCode.InternalServerError, Type = typeof(BaseResponse))]

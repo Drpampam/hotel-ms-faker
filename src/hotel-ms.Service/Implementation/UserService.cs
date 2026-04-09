@@ -584,6 +584,67 @@ namespace hotelier_core_app.Service.Implementation
             return BaseResponse.Success("Password reset successfully. You can now sign in with your new password.", ResponseStatusCode.OperationSuccessful);
         }
 
+        public async Task<BaseResponse> AdminChangePasswordAsync(AdminChangePasswordRequestDTO model, AuditLog auditLog)
+        {
+            var user = await _userManager.FindByEmailAsync(model.Email);
+            if (user == null || user.IsDeleted)
+                return BaseResponse.Failure(ResponseMessages.UserDoesNotExist, ResponseStatusCode.UserDoesNotExist);
+
+            var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var result = await _userManager.ResetPasswordAsync(user, resetToken, model.NewPassword);
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(" ", result.Errors.Select(e => e.Description));
+                return BaseResponse.Failure(errors, ResponseStatusCode.OperationFailed);
+            }
+
+            auditLog.PerformedAgainst = model.Email;
+            _auditLogCommandRepository.Add(auditLog);
+
+            return BaseResponse.Success("Password updated successfully.", ResponseStatusCode.OperationSuccessful);
+        }
+
+        public async Task<BaseResponse> DeleteUserAsync(DeleteUserRequestDTO model, AuditLog auditLog)
+        {
+            var user = await _userManager.FindByEmailAsync(model.Email);
+            if (user == null || user.IsDeleted)
+                return BaseResponse.Failure(ResponseMessages.UserDoesNotExist, ResponseStatusCode.UserDoesNotExist);
+
+            user.IsDeleted = true;
+            user.IsActive = false;
+            user.Status = "Deleted";
+            user.LastModifiedDate = DateTime.UtcNow;
+
+            var result = await _userManager.UpdateAsync(user);
+            if (!result.Succeeded)
+                return BaseResponse.Failure(ResponseMessages.OperationFailed, ResponseStatusCode.OperationFailed);
+
+            auditLog.PerformedAgainst = model.Email;
+            _auditLogCommandRepository.Add(auditLog);
+
+            return BaseResponse.Success("User deleted successfully.", ResponseStatusCode.OperationSuccessful);
+        }
+
+        public async Task<BaseResponse> ChangeUserShiftAsync(ChangeUserShiftRequestDTO model, AuditLog auditLog)
+        {
+            var user = await _userManager.FindByEmailAsync(model.Email);
+            if (user == null || user.IsDeleted)
+                return BaseResponse.Failure(ResponseMessages.UserDoesNotExist, ResponseStatusCode.UserDoesNotExist);
+
+            user.Shift = model.Shift;
+            user.Department = model.Department;
+            user.LastModifiedDate = DateTime.UtcNow;
+
+            var result = await _userManager.UpdateAsync(user);
+            if (!result.Succeeded)
+                return BaseResponse.Failure(ResponseMessages.OperationFailed, ResponseStatusCode.OperationFailed);
+
+            auditLog.PerformedAgainst = model.Email;
+            _auditLogCommandRepository.Add(auditLog);
+
+            return BaseResponse.Success("Shift updated successfully.", ResponseStatusCode.OperationSuccessful);
+        }
+
         #region private methods
         private async Task SendEmailConfirmationAsync(ApplicationUser user, string email)
         {

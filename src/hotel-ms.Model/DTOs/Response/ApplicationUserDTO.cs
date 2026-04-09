@@ -39,5 +39,10 @@
         /// Gets or sets the list of roles assigned to the user.
         /// </summary>
         public List<RoleDTO>? UserRoles { get; set; }
+        public bool IsActive { get; set; }
+        public string? PhoneNumber { get; set; }
+        public string? Shift { get; set; }
+        public string? Department { get; set; }
+        public string? Picture { get; set; }
     }
 }

@@ -59,6 +59,11 @@ export interface User {
   lastActiveDate?: string;
   lastModifiedDate?: string;
   userRoles?: Array<{ id: number; name: string }>;
+  isActive?: boolean;
+  phoneNumber?: string;
+  shift?: string;
+  department?: string;
+  picture?: string;
   // Convenience shims used by the UI
   id: string;
   firstName: string;
@@ -66,8 +71,6 @@ export interface User {
   role: UserRole;
   tenantId: number;
   createdAt: string;
-  isActive?: boolean;
-  phoneNumber?: string;
 }
 
 export interface CreateUserRequest {

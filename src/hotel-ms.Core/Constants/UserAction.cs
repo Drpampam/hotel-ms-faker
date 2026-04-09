@@ -7,6 +7,9 @@
         public const string EditUser = "Edit User";
         public const string ActivateUser = "Activate User";
         public const string DeactivateUser = "Deactivate User";
+        public const string DeleteUser = "Delete User";
+        public const string AdminChangePassword = "Admin Change Password";
+        public const string ChangeUserShift = "Change User Shift";
         public const string UserLogin = "User Login";
         public const string RefreshToken = "Refresh Token";
 

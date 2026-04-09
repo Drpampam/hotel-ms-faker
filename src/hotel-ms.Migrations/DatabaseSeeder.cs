@@ -14,9 +14,30 @@ namespace hotelier_core_app.Migrations
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
 
-            if (context.Database.GetPendingMigrations().Any())
+            var pending = context.Database.GetPendingMigrations().ToList();
+            if (pending.Any())
             {
-                await context.Database.MigrateAsync();
+                try
+                {
+                    await context.Database.MigrateAsync();
+                }
+                catch (Exception ex) when (ex.GetBaseException().Message.Contains("already exists"))
+                {
+                    // The physical schema is ahead of __EFMigrationsHistory (e.g. a previous
+                    // partially-applied migration or a manual schema change).  Stamp every
+                    // still-pending migration as applied so future deploys don't re-run DDL.
+                    Console.WriteLine($"[Seeder] MigrateAsync failed ({ex.GetBaseException().Message}). " +
+                                      "Stamping pending migrations as applied and continuing…");
+                    using var stampScope = provider.CreateScope();
+                    var stampCtx = stampScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    foreach (var mig in stampCtx.Database.GetPendingMigrations())
+                    {
+                        await stampCtx.Database.ExecuteSqlRawAsync(
+                            "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") " +
+                            "VALUES ({0}, {1}) ON CONFLICT DO NOTHING",
+                            mig, "8.0.0");
+                    }
+                }
             }
 
             // ── Permissions ──────────────────────────────────────────────────────

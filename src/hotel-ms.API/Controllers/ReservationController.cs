@@ -28,7 +28,7 @@ namespace hotelier_core_app.API.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Developer")]
+        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Developer,Guest")]
         [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<ReservationResponseDTO>))]
         [ProducesResponseType((int)HttpStatusCode.BadRequest, Type = typeof(ValidationResultModel))]
         public async Task<IActionResult> CreateReservation(CreateReservationRequestDTO request)
@@ -50,7 +50,7 @@ namespace hotelier_core_app.API.Controllers
         }
 
         [HttpGet("{id}")]
-        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Developer")]
+        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Developer,Guest")]
         [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<ReservationResponseDTO>))]
         public async Task<IActionResult> GetReservation(long id)
         {
@@ -59,7 +59,7 @@ namespace hotelier_core_app.API.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Developer")]
+        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Developer,Guest")]
         [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(PageBaseResponse<List<ReservationResponseDTO>>))]
         public async Task<IActionResult> GetReservations([FromQuery] GetReservationsInputDTO input)
         {

@@ -207,6 +207,14 @@ var app = builder.Build();
 }
 
 // Configure the HTTP request pipeline.
+// CORS must be first so preflight OPTIONS requests get the required headers
+// before any middleware (rate limiter, auth) can short-circuit the request.
+app.UseCors(x => x
+    .AllowAnyMethod()
+    .AllowAnyHeader()
+    .SetIsOriginAllowed(_ => true)
+    .AllowCredentials());
+
 app.UseSwagger();
 app.UseSwaggerUI();
 
@@ -217,20 +225,14 @@ if (app.Environment.IsDevelopment())
 
 app.UseRateLimiter();
 app.ConfigureExceptionHandler();
-app.UseCors(x => x
-    .AllowAnyMethod()
-    .AllowAnyHeader()
-    .SetIsOriginAllowed(_ => true)
-    .AllowCredentials());
-var supportedCultures = new[] { new CultureInfo("en-GB"), new CultureInfo("en-US") };
 
+var supportedCultures = new[] { new CultureInfo("en-GB"), new CultureInfo("en-US") };
 app.UseRequestLocalization(new RequestLocalizationOptions
 {
     DefaultRequestCulture = new RequestCulture("en-GB"),
     SupportedCultures = supportedCultures,
     SupportedUICultures = supportedCultures
 });
-
 
 // Use TenantMiddleware before authentication/authorization
 app.UseTenantMiddleware();

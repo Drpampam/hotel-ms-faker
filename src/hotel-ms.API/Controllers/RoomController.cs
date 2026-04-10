@@ -68,7 +68,7 @@ namespace hotelier_core_app.API.Controllers
         }
 
         [HttpGet("{id}")]
-        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Developer")]
+        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Developer,Guest")]
         [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<RoomResponseDTO>))]
         public async Task<IActionResult> GetRoom(long id)
         {
@@ -77,7 +77,7 @@ namespace hotelier_core_app.API.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Developer")]
+        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Developer,Guest")]
         [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(PageBaseResponse<List<RoomResponseDTO>>))]
         public async Task<IActionResult> GetRooms([FromQuery] GetRoomsInputDTO input)
         {

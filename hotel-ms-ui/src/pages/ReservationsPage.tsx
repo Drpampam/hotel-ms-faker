@@ -29,7 +29,7 @@ import { Badge } from '../components/ui/Badge';
 import { Table } from '../components/ui/Table';
 import { Modal } from '../components/ui/Modal';
 import { Card } from '../components/ui/Card';
-import { useToast } from '../lib/store';
+import { useToast, useAuthStore } from '../lib/store';
 import type { Reservation, ReservationExpense, Guest, Room, CreateReservationRequest, Payment } from '../types';
 import { formatDate, formatCurrency, calculateNights, RESERVATION_STATUS_COLORS } from '../lib/utils';
 import { useForm } from 'react-hook-form';
@@ -150,6 +150,8 @@ export function ReservationsPage() {
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const toast = useToast();
+  const { user } = useAuthStore();
+  const isGuestRole = user?.roles?.includes('Guest') ?? false;
   useSlowConnection(isLoading);
 
   // ── Create form ─────────────────────────────────────────────────────────────
@@ -158,6 +160,7 @@ export function ReservationsPage() {
     handleSubmit: handleCreate,
     reset: resetCreate,
     watch: watchCreate,
+    setValue: setValueCreate,
     formState: { errors: createErrors },
   } = useForm<CreateFormData>({ resolver: zodResolver(createSchema), defaultValues: { adults: 1, children: 0 } });
 
@@ -215,8 +218,19 @@ export function ReservationsPage() {
         roomService.getAll(),
       ]);
       setReservations(resList.status === 'fulfilled' ? resList.value : []);
-      setGuests(guestList.status === 'fulfilled' ? guestList.value : []);
+      const loadedGuests = guestList.status === 'fulfilled' ? guestList.value : [];
+      setGuests(loadedGuests);
       setRooms(roomList.status === 'fulfilled' ? roomList.value : []);
+
+      // Auto-select the logged-in guest when the user has the Guest role
+      if (isGuestRole && user?.email) {
+        const myGuest = loadedGuests.find(
+          (g) => (g.email ?? '').toLowerCase() === user.email.toLowerCase()
+        );
+        if (myGuest) {
+          setValueCreate('guestId', String(myGuest.id), { shouldValidate: true });
+        }
+      }
     } catch {
       // leave state as empty arrays
     } finally {
@@ -492,7 +506,18 @@ export function ReservationsPage() {
           <h2 className="page-title">Reservations</h2>
           <p className="page-subtitle">{reservations.length} total reservations</p>
         </div>
-        <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => setIsCreateOpen(true)}>
+        <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => {
+          setIsCreateOpen(true);
+          // Re-apply the guest auto-selection after form reset
+          if (isGuestRole && user?.email) {
+            const myGuest = guests.find(
+              (g) => (g.email ?? '').toLowerCase() === user.email.toLowerCase()
+            );
+            if (myGuest) {
+              setTimeout(() => setValueCreate('guestId', String(myGuest.id), { shouldValidate: true }), 0);
+            }
+          }
+        }}>
           New Reservation
         </Button>
       </div>
@@ -555,21 +580,35 @@ export function ReservationsPage() {
       >
         <form className="space-y-5" onSubmit={handleCreate(onCreateSubmit)}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2">
-              <Select
-                label="Guest"
-                required
-                options={[
-                  { value: '', label: 'Select a guest...' },
-                  ...guests.map((g) => ({ value: String(g.id), label: `${g.firstName || g.fullName || '—'} — ${g.email ?? ''}` })),
-                ]}
-                {...registerCreate('guestId')}
-                error={createErrors.guestId?.message}
-              />
-              {guests.length === 0 && (
-                <p className="mt-1 text-xs text-amber-500">No guests found. Add guests in the Guests section first.</p>
-              )}
-            </div>
+            {isGuestRole ? (
+              // Guest users are automatically set as the guest — show a read-only label
+              <div className="sm:col-span-2 p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800">
+                <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400 mb-0.5">Booking as</p>
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {guests.find((g) => (g.email ?? '').toLowerCase() === (user?.email ?? '').toLowerCase())
+                    ? `${guests.find((g) => (g.email ?? '').toLowerCase() === (user?.email ?? '').toLowerCase())!.firstName || ''} ${guests.find((g) => (g.email ?? '').toLowerCase() === (user?.email ?? '').toLowerCase())!.lastName || ''}`.trim() || user?.fullName || user?.email
+                    : user?.fullName || user?.email}
+                </p>
+                {/* hidden input keeps guestId in the form */}
+                <input type="hidden" {...registerCreate('guestId')} />
+              </div>
+            ) : (
+              <div className="sm:col-span-2">
+                <Select
+                  label="Guest"
+                  required
+                  options={[
+                    { value: '', label: 'Select a guest...' },
+                    ...guests.map((g) => ({ value: String(g.id), label: `${g.firstName || g.fullName || '—'} — ${g.email ?? ''}` })),
+                  ]}
+                  {...registerCreate('guestId')}
+                  error={createErrors.guestId?.message}
+                />
+                {guests.length === 0 && (
+                  <p className="mt-1 text-xs text-amber-500">No guests found. Add guests in the Guests section first.</p>
+                )}
+              </div>
+            )}
             <div className="sm:col-span-2">
               <Select
                 label="Room"

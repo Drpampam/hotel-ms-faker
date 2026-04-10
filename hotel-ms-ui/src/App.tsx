@@ -4,30 +4,46 @@ import { AppLayout } from './components/layout/AppLayout';
 import { ProtectedRoute, RoleRoute } from './components/layout/ProtectedRoute';
 import { PageLoader } from './components/ui/Spinner';
 import { ToastNotifications } from './components/ui/ToastNotifications';
+import { useAuthStore } from './lib/store';
 
 // Eager load login since it's the entry point
 import { LoginPage } from './pages/auth/LoginPage';
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
 
 // Lazy load all protected pages for better performance
-const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const DashboardPage    = lazy(() => import('./pages/DashboardPage'));
 const ReservationsPage = lazy(() => import('./pages/ReservationsPage'));
-const RoomsPage = lazy(() => import('./pages/RoomsPage'));
-const GuestsPage = lazy(() => import('./pages/GuestsPage'));
-const UsersPage = lazy(() => import('./pages/UsersPage'));
-const PropertiesPage = lazy(() => import('./pages/PropertiesPage'));
+const RoomsPage        = lazy(() => import('./pages/RoomsPage'));
+const GuestsPage       = lazy(() => import('./pages/GuestsPage'));
+const UsersPage        = lazy(() => import('./pages/UsersPage'));
+const PropertiesPage   = lazy(() => import('./pages/PropertiesPage'));
 const HousekeepingPage = lazy(() => import('./pages/HousekeepingPage'));
-const ReportsPage = lazy(() => import('./pages/ReportsPage'));
-const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const ReportsPage      = lazy(() => import('./pages/ReportsPage'));
+const SettingsPage     = lazy(() => import('./pages/SettingsPage'));
+
+// Role constants — single source of truth
+const STAFF_ROLES   = ['SuperAdmin', 'Admin', 'FrontDesk', 'Housekeeping', 'Developer'];
+const ADMIN_ROLES   = ['SuperAdmin', 'Admin', 'Developer'];
+const DESK_ROLES    = ['SuperAdmin', 'Admin', 'FrontDesk', 'Developer'];
+const HK_ROLES      = ['SuperAdmin', 'Admin', 'FrontDesk', 'Housekeeping', 'Developer'];
+const BOOKING_ROLES = [...DESK_ROLES, 'Guest'];
+const ROOMS_ROLES   = [...HK_ROLES,  'Guest'];
+
+/** Redirects to the correct home page based on the user's role. */
+function RoleAwareHome() {
+  const { user } = useAuthStore();
+  const roles: string[] = user?.roles ?? [];
+  const isGuest = roles.includes('Guest') && !STAFF_ROLES.some((r) => roles.includes(r));
+  return <Navigate to={isGuest ? '/reservations' : '/dashboard'} replace />;
+}
 
 function App() {
   return (
     <BrowserRouter>
-      {/* Global toast — renders on every page including login */}
       <ToastNotifications />
       <Routes>
         {/* Public routes */}
-        <Route path="/login" element={<LoginPage />} />
+        <Route path="/login"          element={<LoginPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* Protected routes */}
@@ -38,43 +54,70 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          {/* Root redirect — role-aware */}
+          <Route path="/" element={<RoleAwareHome />} />
+
+          {/* Staff + admin pages */}
           <Route
             path="/dashboard"
             element={
-              <Suspense fallback={<PageLoader />}>
-                <DashboardPage />
-              </Suspense>
+              <RoleRoute allowedRoles={STAFF_ROLES}>
+                <Suspense fallback={<PageLoader />}>
+                  <DashboardPage />
+                </Suspense>
+              </RoleRoute>
             }
           />
+
+          {/* Accessible by staff + guest */}
           <Route
             path="/reservations"
             element={
-              <Suspense fallback={<PageLoader />}>
-                <ReservationsPage />
-              </Suspense>
+              <RoleRoute allowedRoles={BOOKING_ROLES}>
+                <Suspense fallback={<PageLoader />}>
+                  <ReservationsPage />
+                </Suspense>
+              </RoleRoute>
             }
           />
           <Route
             path="/rooms"
             element={
-              <Suspense fallback={<PageLoader />}>
-                <RoomsPage />
-              </Suspense>
+              <RoleRoute allowedRoles={ROOMS_ROLES}>
+                <Suspense fallback={<PageLoader />}>
+                  <RoomsPage />
+                </Suspense>
+              </RoleRoute>
             }
           />
+
+          {/* Staff only */}
           <Route
             path="/guests"
             element={
-              <Suspense fallback={<PageLoader />}>
-                <GuestsPage />
-              </Suspense>
+              <RoleRoute allowedRoles={DESK_ROLES}>
+                <Suspense fallback={<PageLoader />}>
+                  <GuestsPage />
+                </Suspense>
+              </RoleRoute>
             }
           />
           <Route
+            path="/housekeeping"
+            element={
+              <RoleRoute allowedRoles={HK_ROLES}>
+                <Suspense fallback={<PageLoader />}>
+                  <HousekeepingPage />
+                </Suspense>
+              </RoleRoute>
+            }
+          />
+
+          {/* Admin only */}
+          <Route
             path="/users"
             element={
-              <RoleRoute allowedRoles={['SuperAdmin', 'Admin', 'Developer']}>
+              <RoleRoute allowedRoles={ADMIN_ROLES}>
                 <Suspense fallback={<PageLoader />}>
                   <UsersPage />
                 </Suspense>
@@ -84,7 +127,7 @@ function App() {
           <Route
             path="/properties"
             element={
-              <RoleRoute allowedRoles={['SuperAdmin', 'Admin', 'Developer']}>
+              <RoleRoute allowedRoles={ADMIN_ROLES}>
                 <Suspense fallback={<PageLoader />}>
                   <PropertiesPage />
                 </Suspense>
@@ -92,17 +135,9 @@ function App() {
             }
           />
           <Route
-            path="/housekeeping"
-            element={
-              <Suspense fallback={<PageLoader />}>
-                <HousekeepingPage />
-              </Suspense>
-            }
-          />
-          <Route
             path="/reports"
             element={
-              <RoleRoute allowedRoles={['SuperAdmin', 'Admin', 'Developer']}>
+              <RoleRoute allowedRoles={ADMIN_ROLES}>
                 <Suspense fallback={<PageLoader />}>
                   <ReportsPage />
                 </Suspense>
@@ -112,15 +147,17 @@ function App() {
           <Route
             path="/settings"
             element={
-              <Suspense fallback={<PageLoader />}>
-                <SettingsPage />
-              </Suspense>
+              <RoleRoute allowedRoles={ADMIN_ROLES}>
+                <Suspense fallback={<PageLoader />}>
+                  <SettingsPage />
+                </Suspense>
+              </RoleRoute>
             }
           />
         </Route>
 
-        {/* 404 - redirect to dashboard */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        {/* 404 */}
+        <Route path="*" element={<RoleAwareHome />} />
       </Routes>
     </BrowserRouter>
   );

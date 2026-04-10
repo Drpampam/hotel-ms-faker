@@ -26,14 +26,15 @@ interface RoleRouteProps {
 }
 
 /** Wraps a route that should only be accessible to specific roles.
- *  Redirects to /dashboard if the current user's role is not in allowedRoles. */
+ *  Guests land on /reservations; all other unauthorised roles land on /dashboard. */
 export function RoleRoute({ children, allowedRoles }: RoleRouteProps) {
   const { user } = useAuthStore();
   const userRoles: string[] = user?.roles ?? [];
   const hasRole = allowedRoles.some((r) => userRoles.includes(r));
 
   if (!hasRole) {
-    return <Navigate to="/dashboard" replace />;
+    const isGuest = userRoles.includes('Guest');
+    return <Navigate to={isGuest ? '/reservations' : '/dashboard'} replace />;
   }
 
   return <>{children}</>;

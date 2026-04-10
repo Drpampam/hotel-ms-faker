@@ -28,15 +28,15 @@ type NavItem = {
 };
 
 const ALL_NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard',    path: '/dashboard',    icon: LayoutDashboard },
-  { label: 'Reservations', path: '/reservations', icon: CalendarCheck,  roles: ['SuperAdmin', 'Admin', 'FrontDesk', 'Developer'] },
-  { label: 'Rooms',        path: '/rooms',        icon: BedDouble,      roles: ['SuperAdmin', 'Admin', 'FrontDesk', 'Housekeeping', 'Developer'] },
-  { label: 'Guests',       path: '/guests',       icon: UserCircle,     roles: ['SuperAdmin', 'Admin', 'FrontDesk', 'Developer'] },
-  { label: 'Housekeeping', path: '/housekeeping', icon: Sparkles,       roles: ['SuperAdmin', 'Admin', 'FrontDesk', 'Housekeeping', 'Developer'] },
-  { label: 'Properties',   path: '/properties',   icon: Building2,      roles: ['SuperAdmin', 'Admin', 'Developer'] },
-  { label: 'Users',        path: '/users',        icon: Users,          roles: ['SuperAdmin', 'Admin', 'Developer'] },
-  { label: 'Reports',      path: '/reports',      icon: BarChart3,      roles: ['SuperAdmin', 'Admin', 'Developer'] },
-  { label: 'Settings',     path: '/settings',     icon: Settings },
+  { label: 'Dashboard',    path: '/dashboard',    icon: LayoutDashboard, roles: ['SuperAdmin', 'Admin', 'FrontDesk', 'Housekeeping', 'Developer'] },
+  { label: 'Reservations', path: '/reservations', icon: CalendarCheck,   roles: ['SuperAdmin', 'Admin', 'FrontDesk', 'Developer', 'Guest'] },
+  { label: 'Rooms',        path: '/rooms',        icon: BedDouble,       roles: ['SuperAdmin', 'Admin', 'FrontDesk', 'Housekeeping', 'Developer', 'Guest'] },
+  { label: 'Guests',       path: '/guests',       icon: UserCircle,      roles: ['SuperAdmin', 'Admin', 'FrontDesk', 'Developer'] },
+  { label: 'Housekeeping', path: '/housekeeping', icon: Sparkles,        roles: ['SuperAdmin', 'Admin', 'FrontDesk', 'Housekeeping', 'Developer'] },
+  { label: 'Properties',   path: '/properties',   icon: Building2,       roles: ['SuperAdmin', 'Admin', 'Developer'] },
+  { label: 'Users',        path: '/users',        icon: Users,           roles: ['SuperAdmin', 'Admin', 'Developer'] },
+  { label: 'Reports',      path: '/reports',      icon: BarChart3,       roles: ['SuperAdmin', 'Admin', 'Developer'] },
+  { label: 'Settings',     path: '/settings',     icon: Settings,        roles: ['SuperAdmin', 'Admin', 'Developer'] },
 ];
 
 export function Sidebar() {

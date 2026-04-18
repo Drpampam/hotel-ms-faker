@@ -214,7 +214,6 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 // CORS must be first so preflight OPTIONS requests get the required headers
 // before any middleware (rate limiter, auth) can short-circuit the request.
-var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
 app.UseCors(x =>
 {
     if (app.Environment.IsDevelopment())

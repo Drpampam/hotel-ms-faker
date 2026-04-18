@@ -42,7 +42,7 @@ namespace hotelier_core_app.Service.Implementation
                 return BaseResponse<DiscountResponseDTO>.Failure(new DiscountResponseDTO(), ResponseMessages.DiscountExists, ResponseStatusCode.DiscountExists);
 
             var discount = _mapper.Map<Discount>(request);
-            discount.IsActive = true;
+            discount.IsActive = request.IsActive;
             discount.CreatedBy = auditLog.PerformedBy;
             discount.CreationDate = DateTime.UtcNow;
 

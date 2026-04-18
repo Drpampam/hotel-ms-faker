@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import {
   BarChart3, TrendingUp, BedDouble, CalendarCheck, Sparkles,
   CreditCard, RefreshCw, ArrowUpRight, ArrowDownRight, Clock,
-  CheckCircle, XCircle, AlertCircle, Receipt, Search,
+  CheckCircle, XCircle, AlertCircle, Receipt, Search, Download,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -13,7 +13,7 @@ import type {
   OccupancyReport, RevenueSummary, ReservationStats,
   HousekeepingStats, PaymentBreakdown, FrontDeskSummary, ExpenseReport,
 } from '../services/report.service';
-import { cn, formatCurrency } from '../lib/utils';
+import { cn, formatCurrency, downloadCSV } from '../lib/utils';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -234,11 +234,89 @@ export function ReportsPage() {
     if (activeTab === 'expenses')     loadExpenses();
   };
 
+  const handleExportCSV = () => {
+    const prefix = `hotel-ms-${from}-to-${to}`;
+    if (activeTab === 'occupancy' && occupancy) {
+      downloadCSV(`${prefix}-occupancy.csv`, [{
+        totalRooms: occupancy.totalRooms,
+        occupiedRooms: occupancy.occupiedRooms,
+        availableRooms: occupancy.availableRooms,
+        cleaningRooms: occupancy.cleaningRooms,
+        maintenanceRooms: occupancy.maintenanceRooms,
+        occupancyRate: occupancy.occupancyRate,
+      }]);
+    } else if (activeTab === 'revenue' && revenue) {
+      downloadCSV(`${prefix}-revenue.csv`, [{
+        totalRevenue: revenue.totalRevenue,
+        roomRevenue: revenue.roomRevenue,
+        taxCollected: revenue.taxCollected,
+        totalDiscountsApplied: revenue.totalDiscountsApplied,
+        paidInvoicesCount: revenue.paidInvoicesCount,
+        pendingInvoicesCount: revenue.pendingInvoicesCount,
+      }]);
+    } else if (activeTab === 'reservations' && reservations) {
+      downloadCSV(`${prefix}-reservations.csv`, [{
+        totalReservations: reservations.totalReservations,
+        confirmedReservations: reservations.confirmedReservations,
+        checkedInCount: reservations.checkedInCount,
+        checkedOutCount: reservations.checkedOutCount,
+        pendingReservations: reservations.pendingReservations,
+        cancelledCount: reservations.cancelledCount,
+        noShowCount: reservations.noShowCount,
+        averageStayDays: reservations.averageStayDays,
+      }]);
+    } else if (activeTab === 'payments' && payments) {
+      downloadCSV(`${prefix}-payments.csv`, payments.byMethod.map((m) => ({
+        method: m.method,
+        count: m.count,
+        amount: m.amount,
+      })));
+    } else if (activeTab === 'expenses' && expenses) {
+      downloadCSV(`${prefix}-expenses.csv`, expenses.items.map((item) => ({
+        date: item.creationDate,
+        reservationId: item.reservationId,
+        guestName: item.guestName ?? '',
+        guestEmail: item.guestEmail ?? '',
+        room: item.roomNumber ?? '',
+        description: item.description,
+        category: item.category ?? '',
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        amount: item.amount,
+        addedBy: item.createdBy ?? '',
+      })));
+    } else if (activeTab === 'housekeeping' && housekeeping) {
+      downloadCSV(`hotel-ms-${hkDate}-housekeeping.csv`, [{
+        date: hkDate,
+        totalTasks: housekeeping.totalTasks,
+        pendingTasks: housekeeping.pendingTasks,
+        inProgressTasks: housekeeping.inProgressTasks,
+        completedTasks: housekeeping.completedTasks,
+        skippedTasks: housekeeping.skippedTasks,
+        completionRate: housekeeping.completionRate,
+      }]);
+    }
+  };
+
+  const canExport = (activeTab === 'occupancy' && !!occupancy)
+    || (activeTab === 'revenue' && !!revenue)
+    || (activeTab === 'reservations' && !!reservations)
+    || (activeTab === 'payments' && !!payments)
+    || (activeTab === 'expenses' && !!expenses)
+    || (activeTab === 'housekeeping' && !!housekeeping);
+
   return (
     <div className="page-container">
-      <div className="page-header">
-        <h2 className="page-title">Reports</h2>
-        <p className="page-subtitle">Operational and financial reports across the hotel</p>
+      <div className="page-header flex items-start justify-between flex-wrap gap-4">
+        <div>
+          <h2 className="page-title">Reports</h2>
+          <p className="page-subtitle">Operational and financial reports across the hotel</p>
+        </div>
+        {canExport && (
+          <Button variant="outline" leftIcon={<Download className="h-4 w-4" />} onClick={handleExportCSV}>
+            Export CSV
+          </Button>
+        )}
       </div>
 
       {/* Tab bar */}

@@ -37,4 +37,16 @@ export const paymentService = {
     if (!Array.isArray(raw)) return [];
     return raw.map(mapPayment);
   },
+
+  /**
+   * PATCH /api/v1/payments/{id}/state with trigger "Refund"
+   */
+  async refund(paymentId: number): Promise<Payment> {
+    const response = await api.patch<ApiResponse<unknown>>(
+      `/api/v1/payments/${paymentId}/state`,
+      JSON.stringify('Refund'),
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+    return mapPayment(response.data.data);
+  },
 };

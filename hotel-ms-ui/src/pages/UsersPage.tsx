@@ -6,6 +6,7 @@ import {
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { passwordSchema } from '../lib/utils';
 import { userService } from '../services/user.service';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -28,7 +29,7 @@ const DEPARTMENT_OPTIONS = [
 
 const createUserSchema = z.object({
   email: z.string().email('Invalid email'),
-  password: z.string().min(6, 'Minimum 6 characters'),
+  password: passwordSchema,
   fullName: z.string().min(2, 'Required'),
   phoneNumber: z.string().min(1, 'Required'),
   role: z.enum(['Admin', 'SuperAdmin', 'FrontDesk', 'Housekeeping', 'Developer'] as const),
@@ -41,7 +42,7 @@ const editUserSchema = z.object({
 
 const changePasswordSchema = z
   .object({
-    newPassword: z.string().min(6, 'Minimum 6 characters'),
+    newPassword: passwordSchema,
     confirmPassword: z.string().min(1, 'Required'),
   })
   .refine((d) => d.newPassword === d.confirmPassword, {

@@ -104,7 +104,7 @@ namespace hotelier_core_app.API.Controllers
 
             AuditLog auditLog = new AuditLog
             {
-                Action = UserAction.EditModuleGroup,
+                Action = UserAction.DeleteModuleGroup,
                 DatePerformed = DateTime.UtcNow,
                 PerformedBy = _tokenService.GetUserFullName(Request),
                 IpAddress = _accessor?.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",
@@ -195,12 +195,12 @@ namespace hotelier_core_app.API.Controllers
         {
             AuditLog auditLog = new AuditLog
             {
-                Action = UserAction.EditModuleGroup,
+                Action = UserAction.DeleteModule,
                 DatePerformed = DateTime.UtcNow,
                 PerformedBy = _tokenService.GetUserFullName(Request),
                 IpAddress = _accessor?.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",
                 PerformerEmail = _tokenService.GetUserEmail(Request),
-                PerformedAgainst = "Module Group",
+                PerformedAgainst = "Module",
                 MacAddress = _tokenService.GetMacAddress(Request)
             };
             BaseResponse response = await _moduleService.DeleteModule(id, auditLog);

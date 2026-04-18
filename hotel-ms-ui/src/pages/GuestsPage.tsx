@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSlowConnection } from '../hooks/useSlowConnection';
-import { Search, Plus, User, Phone, Mail, Globe, X, Eye, Edit, Save } from 'lucide-react';
+import { Search, Plus, User, Phone, Mail, Globe, X, Eye, Edit, Save, Star } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { guestService } from '../services/guest.service';
+import { loyaltyService } from '../services/loyalty.service';
+import type { LoyaltySummary } from '../services/loyalty.service';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
@@ -38,6 +40,12 @@ const editGuestSchema = z.object({
 
 type EditGuestFormData = z.infer<typeof editGuestSchema>;
 
+const accrueSchema = z.object({
+  points: z.coerce.number().int().min(1, 'Must be at least 1 point'),
+  reason: z.string().min(1, 'Reason is required'),
+});
+type AccrueFormData = z.infer<typeof accrueSchema>;
+
 function guestDisplayName(g: Guest): string {
   if (g.fullName?.trim()) return g.fullName.trim();
   if (g.firstName || g.lastName) return `${g.firstName} ${g.lastName}`.trim();
@@ -52,12 +60,18 @@ export function GuestsPage() {
   const [viewGuest, setViewGuest] = useState<Guest | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+  const [guestLoyalty, setGuestLoyalty] = useState<LoyaltySummary | null>(null);
+  const [isLoadingLoyalty, setIsLoadingLoyalty] = useState(false);
+  const [showAccrueForm, setShowAccrueForm] = useState(false);
+  const [isAccrueBusy, setIsAccrueBusy] = useState(false);
   const toast = useToast();
-  const { tenantId } = useAuthStore();
+  const { tenantId, user } = useAuthStore();
+  const isAdmin = user?.roles?.some((r) => ['Admin', 'SuperAdmin', 'Developer'].includes(r)) ?? false;
   useSlowConnection(isLoading);
 
   const createForm = useForm<CreateGuestFormData>({ resolver: zodResolver(createGuestSchema) });
   const editForm = useForm<EditGuestFormData>({ resolver: zodResolver(editGuestSchema) });
+  const accrueForm = useForm<AccrueFormData>({ resolver: zodResolver(accrueSchema) });
 
   const fetchGuests = useCallback(async () => {
     setIsLoading(true);
@@ -76,6 +90,8 @@ export function GuestsPage() {
   const openView = (g: Guest) => {
     setViewGuest(g);
     setIsEditing(false);
+    setGuestLoyalty(null);
+    setShowAccrueForm(false);
     editForm.reset({
       nationality: g.nationality ?? '',
       passportNumber: g.passportNumber ?? g.idNumber ?? '',
@@ -83,7 +99,35 @@ export function GuestsPage() {
       preferredRoomType: g.preferredRoomType ?? '',
       specialRequests: g.specialRequests ?? '',
     });
+    if (g.userId) {
+      setIsLoadingLoyalty(true);
+      loyaltyService.getByUserId(g.userId)
+        .then(setGuestLoyalty)
+        .catch(() => setGuestLoyalty(null))
+        .finally(() => setIsLoadingLoyalty(false));
+    }
   };
+
+  const onAccrueSubmit = accrueForm.handleSubmit(async (data) => {
+    if (!viewGuest?.userId) return;
+    setIsAccrueBusy(true);
+    try {
+      const updated = await loyaltyService.accruePoints(viewGuest.userId, data.points, data.reason);
+      setGuestLoyalty(updated);
+      setGuests((prev) => prev.map((g) => g.id === viewGuest.id
+        ? { ...g, loyaltyPoints: updated.totalPoints, loyaltyTier: updated.tier }
+        : g
+      ));
+      setViewGuest({ ...viewGuest, loyaltyPoints: updated.totalPoints, loyaltyTier: updated.tier });
+      accrueForm.reset();
+      setShowAccrueForm(false);
+      toast.success('Points added', `${data.points} pts accrued for ${guestDisplayName(viewGuest)}`);
+    } catch (err) {
+      toast.error('Failed', err instanceof Error ? err.message : 'Could not accrue points');
+    } finally {
+      setIsAccrueBusy(false);
+    }
+  });
 
   const filtered = guests.filter((g) => {
     if (!search) return true;
@@ -405,6 +449,64 @@ export function GuestsPage() {
                 <p className="text-sm text-slate-800 dark:text-slate-200">{viewGuest.specialRequests}</p>
               </div>
             )}
+
+            {/* Loyalty Points section */}
+            <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+                  <Star className="h-3.5 w-3.5" /> Loyalty Points
+                </p>
+                {isAdmin && !showAccrueForm && (
+                  <button
+                    onClick={() => { setShowAccrueForm(true); accrueForm.reset(); }}
+                    className="text-xs text-indigo-500 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors flex items-center gap-1"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Points
+                  </button>
+                )}
+              </div>
+
+              {isLoadingLoyalty ? (
+                <p className="text-sm text-slate-400">Loading loyalty data...</p>
+              ) : (
+                <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl flex items-center justify-between">
+                  <div>
+                    <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                      {(guestLoyalty?.totalPoints ?? viewGuest.loyaltyPoints ?? 0).toLocaleString()}
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">points</p>
+                  </div>
+                  <Badge variant={tierVariant(guestLoyalty?.tier ?? viewGuest.loyaltyTier)} dot>
+                    {guestLoyalty?.tier ?? viewGuest.loyaltyTier ?? 'Bronze'}
+                  </Badge>
+                </div>
+              )}
+
+              {showAccrueForm && (
+                <form onSubmit={onAccrueSubmit} className="mt-3 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      label="Points"
+                      type="number"
+                      min={1}
+                      placeholder="e.g. 100"
+                      {...accrueForm.register('points')}
+                      error={accrueForm.formState.errors.points?.message}
+                    />
+                    <Input
+                      label="Reason"
+                      placeholder="e.g. Loyalty bonus"
+                      {...accrueForm.register('reason')}
+                      error={accrueForm.formState.errors.reason?.message}
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setShowAccrueForm(false)}>Cancel</Button>
+                    <Button type="submit" size="sm" isLoading={isAccrueBusy}>Add Points</Button>
+                  </div>
+                </form>
+              )}
+            </div>
           </div>
         )}
 

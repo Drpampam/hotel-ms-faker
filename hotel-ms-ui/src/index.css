@@ -74,3 +74,27 @@
     text-wrap: balance;
   }
 }
+
+@media print {
+  /* Hide everything by default */
+  body > * {
+    display: none !important;
+  }
+
+  /* Show only the element marked for printing */
+  .print-invoice {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    padding: 32px;
+    background: white;
+    color: black;
+    font-family: Inter, sans-serif;
+    font-size: 14px;
+  }
+
+  /* Make sure nested elements inside print-invoice are visible */
+  .print-invoice * {
+    display: revert;
+  }
+}

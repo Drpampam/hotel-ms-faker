@@ -17,9 +17,12 @@ import {
   XCircle,
   Receipt,
   Trash2,
+  FileText,
+  Printer,
 } from 'lucide-react';
 import { reservationService } from '../services/reservation.service';
 import { paymentService } from '../services/payment.service';
+import { billingService } from '../services/billing.service';
 import { guestService } from '../services/guest.service';
 import { roomService } from '../services/room.service';
 import { Button } from '../components/ui/Button';
@@ -30,7 +33,7 @@ import { Table } from '../components/ui/Table';
 import { Modal } from '../components/ui/Modal';
 import { Card } from '../components/ui/Card';
 import { useToast, useAuthStore } from '../lib/store';
-import type { Reservation, ReservationExpense, Guest, Room, CreateReservationRequest, Payment } from '../types';
+import type { Reservation, ReservationExpense, Guest, Room, CreateReservationRequest, Payment, Invoice } from '../types';
 import { formatDate, formatCurrency, calculateNights, RESERVATION_STATUS_COLORS } from '../lib/utils';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -148,6 +151,9 @@ export function ReservationsPage() {
   const [reservationExpenses, setReservationExpenses] = useState<ReservationExpense[]>([]);
   const [isLoadingExpenses, setIsLoadingExpenses] = useState(false);
   const [showAddExpense, setShowAddExpense] = useState(false);
+  const [reservationInvoice, setReservationInvoice] = useState<Invoice | null>(null);
+  const [isLoadingInvoice, setIsLoadingInvoice] = useState(false);
+  const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const toast = useToast();
   const { user } = useAuthStore();
@@ -170,6 +176,22 @@ export function ReservationsPage() {
   const selectedRoomCreate = rooms.find((r) => String(r.id) === selectedRoomIdCreate);
   const nightsCreate = checkInCreate && checkOutCreate ? calculateNights(checkInCreate, checkOutCreate) : 0;
   const estimatedTotalCreate = selectedRoomCreate && nightsCreate > 0 ? selectedRoomCreate.pricePerNight * nightsCreate : 0;
+
+  // Compute blocked room IDs for the selected date range
+  const blockedRoomIds = new Set(
+    (checkInCreate && checkOutCreate)
+      ? reservations
+          .filter((r) =>
+            ['Pending', 'Confirmed', 'CheckedIn'].includes(r.status) &&
+            r.checkInDate < checkOutCreate &&
+            r.checkOutDate > checkInCreate
+          )
+          .map((r) => r.roomId)
+      : []
+  );
+  const availableRoomsForDates = rooms.filter((r) =>
+    r.roomState === 'Available' && !blockedRoomIds.has(r.id)
+  );
 
   // ── Edit form ───────────────────────────────────────────────────────────────
   const {
@@ -245,11 +267,13 @@ export function ReservationsPage() {
     if (!viewReservation) {
       setReservationPayments([]);
       setReservationExpenses([]);
+      setReservationInvoice(null);
       setShowAddExpense(false);
       return;
     }
     setIsLoadingPayments(true);
     setIsLoadingExpenses(true);
+    setIsLoadingInvoice(true);
     paymentService.getByReservation(viewReservation.id)
       .then(setReservationPayments)
       .catch(() => setReservationPayments([]))
@@ -258,6 +282,10 @@ export function ReservationsPage() {
       .then(setReservationExpenses)
       .catch(() => setReservationExpenses([]))
       .finally(() => setIsLoadingExpenses(false));
+    billingService.getByReservation(viewReservation.id)
+      .then((inv) => setReservationInvoice(inv))
+      .catch(() => setReservationInvoice(null))
+      .finally(() => setIsLoadingInvoice(false));
   }, [viewReservation]);
 
   // Pre-fill edit form when edit modal opens
@@ -401,6 +429,78 @@ export function ReservationsPage() {
     }
   };
 
+  const handleRefundPayment = async (paymentId: number) => {
+    if (!confirm('Issue a refund for this payment? This cannot be undone.')) return;
+    try {
+      const updated = await paymentService.refund(paymentId);
+      setReservationPayments((prev) => prev.map((p) => (p.id === paymentId ? updated : p)));
+      toast.success('Refund issued', 'Payment has been marked as refunded');
+    } catch (err) {
+      toast.error('Refund failed', err instanceof Error ? err.message : 'Could not process refund');
+    }
+  };
+
+  const handleGenerateInvoice = async () => {
+    if (!viewReservation) return;
+    setIsGeneratingInvoice(true);
+    try {
+      const invoice = await billingService.generateInvoice(viewReservation.id);
+      setReservationInvoice(invoice);
+      toast.success('Invoice generated', invoice.invoiceNumber);
+    } catch (err) {
+      toast.error('Failed to generate invoice', err instanceof Error ? err.message : 'Please try again');
+    } finally {
+      setIsGeneratingInvoice(false);
+    }
+  };
+
+  const handlePrintInvoice = (invoice: Invoice) => {
+    const { formatCurrency: fc, formatDate: fd } = { formatCurrency, formatDate };
+    const lineItemsHtml = invoice.lineItems.map((item) => `
+      <tr>
+        <td style="padding:8px 4px;border-bottom:1px solid #e2e8f0">${item.description}</td>
+        <td style="padding:8px 4px;border-bottom:1px solid #e2e8f0;color:#64748b">${item.category}</td>
+        <td style="padding:8px 4px;border-bottom:1px solid #e2e8f0;text-align:right">${item.quantity} × ${fc(item.unitPrice)}</td>
+        <td style="padding:8px 4px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600">${fc(item.amount)}</td>
+      </tr>`).join('');
+
+    const html = `<!DOCTYPE html><html><head><title>Invoice ${invoice.invoiceNumber}</title>
+      <style>
+        body{font-family:Inter,sans-serif;margin:0;padding:32px;color:#0f172a;font-size:14px}
+        h1{font-size:22px;font-weight:700;margin:0 0 4px}
+        .meta{color:#64748b;font-size:13px;margin-bottom:24px}
+        .section-label{font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+        .guest-box{background:#f8fafc;border-radius:8px;padding:12px 16px;margin-bottom:24px}
+        table{width:100%;border-collapse:collapse;margin-bottom:24px}
+        th{text-align:left;padding:8px 4px;border-bottom:2px solid #e2e8f0;font-size:12px;color:#64748b;font-weight:600}
+        .total-row td{padding:6px 4px;font-size:13px}
+        .grand-total td{padding:10px 4px;font-size:15px;font-weight:700;border-top:2px solid #e2e8f0;color:#4f46e5}
+        @media print{@page{margin:20mm}}
+      </style></head><body>
+      <h1>${invoice.invoiceNumber}</h1>
+      <div class="meta">Issued ${fd(invoice.issueDate)} · Due ${fd(invoice.dueDate)} · Status: ${invoice.status}</div>
+      ${invoice.guestName ? `<div class="section-label">Billed To</div>
+        <div class="guest-box"><strong>${invoice.guestName}</strong>${invoice.guestEmail ? `<br><span style="color:#64748b">${invoice.guestEmail}</span>` : ''}</div>` : ''}
+      <div class="section-label">Line Items</div>
+      <table><thead><tr><th>Description</th><th>Category</th><th style="text-align:right">Qty × Price</th><th style="text-align:right">Amount</th></tr></thead>
+        <tbody>${lineItemsHtml}</tbody></table>
+      <table style="width:300px;margin-left:auto">
+        <tbody>
+          <tr class="total-row"><td>Subtotal</td><td style="text-align:right">${fc(invoice.subTotal)}</td></tr>
+          ${invoice.discountAmount > 0 ? `<tr class="total-row"><td style="color:#16a34a">Discount</td><td style="text-align:right;color:#16a34a">-${fc(invoice.discountAmount)}</td></tr>` : ''}
+          <tr class="total-row"><td>Tax (10%)</td><td style="text-align:right">${fc(invoice.taxAmount)}</td></tr>
+          <tr class="grand-total"><td>Total</td><td style="text-align:right">${fc(invoice.totalAmount)}</td></tr>
+        </tbody>
+      </table>
+    </body></html>`;
+
+    const win = window.open('', '_blank', 'width=800,height=600');
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+    win.onload = () => { win.print(); };
+  };
+
   const handleStatusChange = async (reservation: Reservation, status: string) => {
     if (status === 'CheckedOut') {
       // Intercept — show payment modal instead
@@ -428,7 +528,7 @@ export function ReservationsPage() {
         </span>
       ),
     },
-    {
+    ...(!isGuestRole ? [{
       key: 'guestName',
       header: 'Guest',
       render: (r: Reservation) => {
@@ -444,7 +544,7 @@ export function ReservationsPage() {
           </div>
         );
       },
-    },
+    }] : []),
     {
       key: 'roomNumber',
       header: 'Room',
@@ -611,11 +711,11 @@ export function ReservationsPage() {
             )}
             <div className="sm:col-span-2">
               <Select
-                label="Room"
+                label={`Room${checkInCreate && checkOutCreate ? ` (${availableRoomsForDates.length} available for selected dates)` : ''}`}
                 required
                 options={[
-                  { value: '', label: 'Select a room...' },
-                  ...rooms.filter((r) => r.status === 'Available').map((r) => ({
+                  { value: '', label: checkInCreate && checkOutCreate ? 'Select an available room...' : 'Select check-in/out dates first...' },
+                  ...(checkInCreate && checkOutCreate ? availableRoomsForDates : rooms.filter((r) => r.roomState === 'Available')).map((r) => ({
                     value: String(r.id),
                     label: `Room ${r.roomNumber ?? r.number} — ${r.type}${r.floor ? ` (Floor ${r.floor})` : ''} — ${formatCurrency(r.pricePerNight)}/night`,
                   })),
@@ -710,7 +810,8 @@ export function ReservationsPage() {
               </div>
             )}
 
-            {/* ── Expenses ───────────────────────────────────────────────── */}
+            {/* ── Expenses — staff only ──────────────────────────────────── */}
+            {!isGuestRole && (
             <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
@@ -837,6 +938,7 @@ export function ReservationsPage() {
                 </div>
               )}
             </div>
+            )} {/* end !isGuestRole expenses */}
 
             {/* Payment history */}
             <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
@@ -858,7 +960,7 @@ export function ReservationsPage() {
                           <p className="text-xs text-slate-400 font-mono">{p.transactionId}</p>
                         )}
                       </div>
-                      <div className="text-right">
+                      <div className="text-right flex flex-col items-end gap-1">
                         <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{formatCurrency(p.amount)}</p>
                         <Badge variant={paymentStateVariant[p.paymentState] ?? 'default'} size="sm">
                           {p.paymentState === 'Completed' ? (
@@ -869,6 +971,14 @@ export function ReservationsPage() {
                             <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{p.paymentState}</span>
                           )}
                         </Badge>
+                        {!isGuestRole && p.paymentState === 'Completed' && (
+                          <button
+                            onClick={() => handleRefundPayment(p.id)}
+                            className="text-xs text-red-400 hover:text-red-600 transition-colors"
+                          >
+                            Refund
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -876,26 +986,73 @@ export function ReservationsPage() {
               )}
             </div>
 
-            {/* Status update actions */}
-            <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
-              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">Update Status</p>
-              <div className="flex flex-wrap gap-2">
-                {['Confirmed', 'CheckedIn', 'CheckedOut', 'Cancelled'].map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => handleStatusChange(viewReservation, s)}
-                    className={cn(
-                      'px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5',
-                      viewReservation.status === s ? 'ring-2 ring-indigo-500 ring-offset-1' : 'hover:opacity-80',
-                      RESERVATION_STATUS_COLORS[s]
-                    )}
+            {/* Invoice section */}
+            {!isGuestRole && (
+              <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5" /> Invoice
+                </p>
+                {isLoadingInvoice ? (
+                  <p className="text-sm text-slate-400">Loading invoice...</p>
+                ) : reservationInvoice ? (
+                  <div className="p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-mono text-sm font-semibold text-slate-800 dark:text-slate-200">{reservationInvoice.invoiceNumber}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        {reservationInvoice.status} · {formatCurrency(reservationInvoice.totalAmount)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge variant={reservationInvoice.status === 'Paid' ? 'success' : reservationInvoice.status === 'Void' ? 'danger' : 'warning'} dot>
+                        {reservationInvoice.status}
+                      </Badge>
+                      <button
+                        onClick={() => handlePrintInvoice(reservationInvoice)}
+                        title="Print invoice"
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                      >
+                        <Printer className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ) : viewReservation.status === 'CheckedOut' ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    leftIcon={<FileText className="h-3.5 w-3.5" />}
+                    isLoading={isGeneratingInvoice}
+                    onClick={handleGenerateInvoice}
                   >
-                    {s === 'CheckedOut' && <CreditCard className="h-3 w-3" />}
-                    {s === 'CheckedIn' ? 'Check In' : s === 'CheckedOut' ? 'Check Out & Pay' : s}
-                  </button>
-                ))}
+                    Generate Invoice
+                  </Button>
+                ) : (
+                  <p className="text-sm text-slate-400 italic">Invoice is generated at check-out.</p>
+                )}
               </div>
-            </div>
+            )}
+
+            {/* Status update actions — staff only */}
+            {!isGuestRole && (
+              <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">Update Status</p>
+                <div className="flex flex-wrap gap-2">
+                  {['Confirmed', 'CheckedIn', 'CheckedOut', 'Cancelled'].map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => handleStatusChange(viewReservation, s)}
+                      className={cn(
+                        'px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5',
+                        viewReservation.status === s ? 'ring-2 ring-indigo-500 ring-offset-1' : 'hover:opacity-80',
+                        RESERVATION_STATUS_COLORS[s]
+                      )}
+                    >
+                      {s === 'CheckedOut' && <CreditCard className="h-3 w-3" />}
+                      {s === 'CheckedIn' ? 'Check In' : s === 'CheckedOut' ? 'Check Out & Pay' : s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Modal>

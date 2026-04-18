@@ -62,7 +62,7 @@ namespace hotelier_core_app.API.Controllers
         {
             AuditLog auditLog = new AuditLog
             {
-                Action = UserAction.ActivateUser,
+                Action = UserAction.AddPolicyGroup,
                 DatePerformed = DateTime.UtcNow,
                 PerformedBy = _tokenHelper.GetUserFullName(Request),
                 IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",
@@ -116,7 +116,7 @@ namespace hotelier_core_app.API.Controllers
         {
             AuditLog auditLog = new AuditLog
             {
-                Action = UserAction.ActivateUser,
+                Action = UserAction.UpdatePolicyGroup,
                 DatePerformed = DateTime.UtcNow,
                 PerformedBy = _tokenHelper.GetUserFullName(Request),
                 IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",
@@ -140,7 +140,7 @@ namespace hotelier_core_app.API.Controllers
         {
             AuditLog auditLog = new AuditLog
             {
-                Action = UserAction.ActivateUser,
+                Action = UserAction.AddUserToPolicyGroup,
                 DatePerformed = DateTime.UtcNow,
                 PerformedBy = _tokenHelper.GetUserFullName(Request),
                 IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",
@@ -165,7 +165,7 @@ namespace hotelier_core_app.API.Controllers
         {
             AuditLog auditLog = new AuditLog
             {
-                Action = UserAction.ActivateUser,
+                Action = UserAction.RemoveUserFromPolicyGroup,
                 DatePerformed = DateTime.UtcNow,
                 PerformedBy = _tokenHelper.GetUserFullName(Request),
                 IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",
@@ -189,7 +189,7 @@ namespace hotelier_core_app.API.Controllers
         {
             AuditLog auditLog = new AuditLog
             {
-                Action = UserAction.ActivateUser,
+                Action = UserAction.AddPolicyToPolicyGroup,
                 DatePerformed = DateTime.UtcNow,
                 PerformedBy = _tokenHelper.GetUserFullName(Request),
                 IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",
@@ -214,7 +214,7 @@ namespace hotelier_core_app.API.Controllers
         {
             AuditLog auditLog = new AuditLog
             {
-                Action = UserAction.ActivateUser,
+                Action = UserAction.RemovePolicyFromPolicyGroup,
                 DatePerformed = DateTime.UtcNow,
                 PerformedBy = _tokenHelper.GetUserFullName(Request),
                 IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",

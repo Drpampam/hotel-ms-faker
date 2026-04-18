@@ -22,8 +22,18 @@
         //Module Management
         public const string CreateModuleGroup = "Create Module Group";
         public const string EditModuleGroup = "Edit Module Group";
+        public const string DeleteModuleGroup = "Delete Module Group";
         public const string CreateModule = "Create Module";
         public const string EditModule = "Edit Module";
+        public const string DeleteModule = "Delete Module";
+
+        // Policy Group Management
+        public const string AddPolicyGroup = "Add Policy Group";
+        public const string UpdatePolicyGroup = "Update Policy Group";
+        public const string AddUserToPolicyGroup = "Add User To Policy Group";
+        public const string RemoveUserFromPolicyGroup = "Remove User From Policy Group";
+        public const string AddPolicyToPolicyGroup = "Add Policy To Policy Group";
+        public const string RemovePolicyFromPolicyGroup = "Remove Policy From Policy Group";
 
         //SubscriptionPlan management
         public const string CreateSubscriptionPlan = "Create Subscription Plan";

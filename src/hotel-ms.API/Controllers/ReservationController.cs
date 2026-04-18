@@ -33,8 +33,10 @@ namespace hotelier_core_app.API.Controllers
         [ProducesResponseType((int)HttpStatusCode.BadRequest, Type = typeof(ValidationResultModel))]
         public async Task<IActionResult> CreateReservation(CreateReservationRequestDTO request)
         {
+            var roles = _tokenHelper.GetUserRoles(Request);
+            var callerEmail = IsGuestOnly(roles) ? _tokenHelper.GetUserEmail(Request) : null;
             var auditLog = BuildAuditLog(UserAction.CreateReservation, request.RoomId.ToString());
-            var result = await _reservationService.CreateReservationAsync(request, auditLog);
+            var result = await _reservationService.CreateReservationAsync(request, auditLog, callerEmail);
             return Ok(result);
         }
 
@@ -54,7 +56,9 @@ namespace hotelier_core_app.API.Controllers
         [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<ReservationResponseDTO>))]
         public async Task<IActionResult> GetReservation(long id)
         {
-            var result = await _reservationService.GetReservationByIdAsync(id);
+            var roles = _tokenHelper.GetUserRoles(Request);
+            var callerEmail = IsGuestOnly(roles) ? _tokenHelper.GetUserEmail(Request) : null;
+            var result = await _reservationService.GetReservationByIdAsync(id, callerEmail);
             return Ok(result);
         }
 
@@ -63,7 +67,9 @@ namespace hotelier_core_app.API.Controllers
         [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(PageBaseResponse<List<ReservationResponseDTO>>))]
         public async Task<IActionResult> GetReservations([FromQuery] GetReservationsInputDTO input)
         {
-            var result = await _reservationService.GetReservationsAsync(input);
+            var roles = _tokenHelper.GetUserRoles(Request);
+            var callerEmail = IsGuestOnly(roles) ? _tokenHelper.GetUserEmail(Request) : null;
+            var result = await _reservationService.GetReservationsAsync(input, callerEmail);
             return Ok(result);
         }
 
@@ -105,6 +111,13 @@ namespace hotelier_core_app.API.Controllers
             var auditLog = BuildAuditLog(UserAction.OverrideReservationStatus, id.ToString());
             var result = await _reservationService.OverrideStatusAsync(id, status, auditLog);
             return Ok(result);
+        }
+
+        // True only when the caller has Guest role and no staff role — prevents staff with dual roles being scoped
+        private static bool IsGuestOnly(List<string> roles)
+        {
+            var staffRoles = new[] { "SuperAdmin", "Admin", "FrontDesk", "Housekeeping", "Developer" };
+            return roles.Contains("Guest") && !staffRoles.Any(roles.Contains);
         }
 
         private AuditLog BuildAuditLog(string action, string performedAgainst) => new AuditLog

@@ -66,22 +66,27 @@ namespace hotelier_core_app.Service.Implementation
             return BaseResponse<ServiceRequestResponseDTO>.Success(response, ResponseMessages.ServiceRequestCreated, ResponseStatusCode.ServiceRequestCreated);
         }
 
-        public async Task<BaseResponse<ServiceRequestResponseDTO>> GetServiceRequestByIdAsync(long serviceRequestId)
+        public async Task<BaseResponse<ServiceRequestResponseDTO>> GetServiceRequestByIdAsync(long serviceRequestId, string? callerEmail = null)
         {
             var serviceRequest = await _serviceRequestQueryRepository.FindAsync(serviceRequestId);
             if (serviceRequest == null)
+                return BaseResponse<ServiceRequestResponseDTO>.Failure(new ServiceRequestResponseDTO(), ResponseMessages.ServiceRequestNotFound, ResponseStatusCode.ServiceRequestNotFound);
+
+            // Guests can only view their own requests (matched by who created it)
+            if (!string.IsNullOrEmpty(callerEmail) && !string.Equals(serviceRequest.CreatedBy, callerEmail, StringComparison.OrdinalIgnoreCase))
                 return BaseResponse<ServiceRequestResponseDTO>.Failure(new ServiceRequestResponseDTO(), ResponseMessages.ServiceRequestNotFound, ResponseStatusCode.ServiceRequestNotFound);
 
             var response = _mapper.Map<ServiceRequestResponseDTO>(serviceRequest);
             return BaseResponse<ServiceRequestResponseDTO>.Success(response, ResponseMessages.OperationSuccessful, ResponseStatusCode.OperationSuccessful);
         }
 
-        public async Task<PageBaseResponse<List<ServiceRequestResponseDTO>>> GetServiceRequestsAsync(GetServiceRequestsInputDTO input)
+        public async Task<PageBaseResponse<List<ServiceRequestResponseDTO>>> GetServiceRequestsAsync(GetServiceRequestsInputDTO input, string? callerEmail = null)
         {
             var all = await _serviceRequestQueryRepository.GetByAsync(sr =>
                 !sr.IsDeleted &&
                 (!input.ReservationId.HasValue || sr.ReservationId == input.ReservationId.Value) &&
-                (input.ServiceType == null || sr.ServiceType == input.ServiceType));
+                (input.ServiceType == null || sr.ServiceType == input.ServiceType) &&
+                (callerEmail == null || sr.CreatedBy == callerEmail));
 
             var paginated = _utility.Paginate(all, input.PageNumber, input.PageSize);
             var response = _mapper.Map<List<ServiceRequestResponseDTO>>(paginated);

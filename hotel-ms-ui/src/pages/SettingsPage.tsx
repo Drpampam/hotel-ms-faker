@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { User, Bell, Shield, Globe, Palette, Key, Save, Sun, Moon, Monitor } from 'lucide-react';
+import { User, Bell, Shield, Globe, Palette, Key, Save, Sun, Moon, Monitor, Mail } from 'lucide-react';
 import { Card, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { Badge } from '../components/ui/Badge';
-import { useAuthStore, useThemeStore, useToast } from '../lib/store';
+import { useAuthStore, useThemeStore, useSettingsStore, useToast } from '../lib/store';
 import { useTheme } from '../hooks/useTheme';
 import { cn, getInitials } from '../lib/utils';
+import api from '../lib/axios';
 
 const CURRENCIES = [
   { value: 'USD', label: 'USD — US Dollar ($)' },
@@ -27,12 +28,29 @@ const CURRENCIES = [
   { value: 'CHF', label: 'CHF — Swiss Franc (CHF)' },
 ];
 
+const TIMEZONES = [
+  { value: 'UTC', label: 'UTC' },
+  { value: 'America/New_York', label: 'Eastern Time (ET)' },
+  { value: 'America/Chicago', label: 'Central Time (CT)' },
+  { value: 'America/Denver', label: 'Mountain Time (MT)' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+  { value: 'Europe/London', label: 'London (GMT/BST)' },
+  { value: 'Europe/Paris', label: 'Paris (CET)' },
+  { value: 'Africa/Lagos', label: 'Lagos (WAT)' },
+  { value: 'Africa/Nairobi', label: 'Nairobi (EAT)' },
+  { value: 'Africa/Johannesburg', label: 'Johannesburg (SAST)' },
+  { value: 'Asia/Dubai', label: 'Dubai (GST)' },
+  { value: 'Asia/Kolkata', label: 'India (IST)' },
+  { value: 'Asia/Singapore', label: 'Singapore (SGT)' },
+  { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
+  { value: 'Australia/Sydney', label: 'Sydney (AEST)' },
+];
+
 const TABS = [
-  { id: 'profile', label: 'Profile', icon: <User className="h-4 w-4" /> },
   { id: 'notifications', label: 'Notifications', icon: <Bell className="h-4 w-4" /> },
-  { id: 'security', label: 'Security', icon: <Shield className="h-4 w-4" /> },
   { id: 'appearance', label: 'Appearance', icon: <Palette className="h-4 w-4" /> },
-  { id: 'tenant', label: 'Tenant Settings', icon: <Globe className="h-4 w-4" /> },
+  { id: 'tenant', label: 'Hotel Settings', icon: <Globe className="h-4 w-4" /> },
+  { id: 'security', label: 'Security', icon: <Shield className="h-4 w-4" /> },
 ];
 
 function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
@@ -56,30 +74,49 @@ function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: (v: b
 }
 
 export function SettingsPage() {
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState('notifications');
   const { user } = useAuthStore();
   const { theme, setTheme } = useTheme();
   const { currency, setCurrency } = useThemeStore();
+  const { notifications, tenantConfig, setNotifications, setTenantConfig } = useSettingsStore();
   const toast = useToast();
   const [isSaving, setIsSaving] = useState(false);
-
-  const [notifications, setNotifications] = useState({
-    newReservations: true,
-    checkInReminders: true,
-    checkOutReminders: false,
-    maintenanceAlerts: true,
-    systemUpdates: false,
-  });
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setIsSaving(false);
-    toast.success('Settings saved', 'Your preferences have been updated');
-  };
+  const [isSendingReset, setIsSendingReset] = useState(false);
 
   const nameParts = (user?.fullName ?? '').trim().split(/\s+/);
   const initials = user ? getInitials(nameParts[0] || 'U', nameParts.slice(1).join(' ') || 'S') : 'US';
+
+  // Local draft state for tenant config (committed on Save)
+  const [draft, setDraft] = useState({ ...tenantConfig });
+
+  const handleSaveNotifications = () => {
+    // already live-saved via store toggles; just confirm
+    toast.success('Notifications saved', 'Your notification preferences have been updated');
+  };
+
+  const handleSaveTenant = () => {
+    setIsSaving(true);
+    setTenantConfig(draft);
+    setIsSaving(false);
+    toast.success('Hotel settings saved', 'Settings have been saved to your browser');
+  };
+
+  const handleSaveCurrency = () => {
+    toast.success('Currency saved', `Currency set to ${currency}`);
+  };
+
+  const handleSendResetEmail = async () => {
+    if (!user?.email) return;
+    setIsSendingReset(true);
+    try {
+      await api.post('/api/v1/user/forgot-password', { email: user.email });
+      toast.success('Reset email sent', `A password reset link has been sent to ${user.email}`);
+    } catch {
+      toast.error('Failed', 'Could not send reset email. Please try again.');
+    } finally {
+      setIsSendingReset(false);
+    }
+  };
 
   return (
     <div className="page-container">
@@ -88,9 +125,25 @@ export function SettingsPage() {
         <p className="page-subtitle">Manage your account and system preferences</p>
       </div>
 
+      {/* User info banner */}
+      <Card className="mb-6" padding="sm">
+        <div className="flex items-center gap-4 px-2 py-1">
+          <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center flex-shrink-0">
+            <span className="text-lg font-bold text-white">{initials}</span>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-900 dark:text-slate-100">{user?.fullName || user?.email || 'User'}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{user?.email}</p>
+          </div>
+          <div className="ml-auto">
+            <Badge variant="primary">{user?.roles?.[0] ?? 'Admin'}</Badge>
+          </div>
+        </div>
+      </Card>
+
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Sidebar tabs */}
-        <div className="lg:w-56 flex-shrink-0">
+        <div className="lg:w-52 flex-shrink-0">
           <Card padding="sm">
             <nav className="space-y-1">
               {TABS.map((tab) => (
@@ -114,53 +167,6 @@ export function SettingsPage() {
 
         {/* Content */}
         <div className="flex-1">
-          {/* Profile Tab */}
-          {activeTab === 'profile' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Profile Information</CardTitle>
-              </CardHeader>
-
-              {/* Avatar */}
-              <div className="flex items-center gap-5 mb-8 pb-6 border-b border-slate-100 dark:border-slate-700">
-                <div className="relative">
-                  <div className="w-20 h-20 rounded-2xl bg-indigo-600 flex items-center justify-center">
-                    <span className="text-2xl font-bold text-white">{initials}</span>
-                  </div>
-                  <button className="absolute -bottom-1 -right-1 w-7 h-7 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-full flex items-center justify-center shadow-sm hover:shadow-md transition-shadow">
-                    <User className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400" />
-                  </button>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-slate-900 dark:text-slate-100">
-                    {user?.fullName || user?.email || 'User'}
-                  </h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">{user?.email}</p>
-                  <div className="mt-1">
-                    <Badge variant="primary">{user?.roles?.[0] ?? 'Admin'}</Badge>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Input label="First Name" defaultValue={nameParts[0] ?? ''} placeholder="First name" />
-                  <Input label="Last Name" defaultValue={nameParts.slice(1).join(' ') ?? ''} placeholder="Last name" />
-                  <div className="sm:col-span-2">
-                    <Input label="Email Address" type="email" defaultValue={user?.email ?? ''} />
-                  </div>
-                  <Input label="Phone Number" type="tel" placeholder="+1 555-0100" />
-                  <Input label="Job Title" placeholder="e.g. Hotel Manager" />
-                </div>
-
-                <div className="flex justify-end">
-                  <Button leftIcon={<Save className="h-4 w-4" />} isLoading={isSaving} onClick={handleSave}>
-                    Save Changes
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          )}
 
           {/* Notifications Tab */}
           {activeTab === 'notifications' && (
@@ -168,95 +174,33 @@ export function SettingsPage() {
               <CardHeader>
                 <CardTitle>Notification Preferences</CardTitle>
               </CardHeader>
-              <div className="space-y-5">
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Choose which notifications you'd like to receive
+              <div className="space-y-1">
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                  Choose which in-app notifications you'd like to receive.
                 </p>
 
-                {[
-                  { key: 'newReservations', label: 'New Reservations', desc: 'Get notified when a new reservation is created' },
-                  { key: 'checkInReminders', label: 'Check-in Reminders', desc: 'Reminders for upcoming guest check-ins' },
-                  { key: 'checkOutReminders', label: 'Check-out Reminders', desc: 'Reminders for scheduled guest check-outs' },
-                  { key: 'maintenanceAlerts', label: 'Maintenance Alerts', desc: 'Alerts for room maintenance issues' },
-                  { key: 'systemUpdates', label: 'System Updates', desc: 'News about system features and updates' },
-                ].map((item) => (
+                {([
+                  { key: 'newReservations',   label: 'New Reservations',    desc: 'When a new reservation is created' },
+                  { key: 'checkInReminders',  label: 'Check-in Reminders',  desc: 'Reminders for upcoming guest check-ins' },
+                  { key: 'checkOutReminders', label: 'Check-out Reminders', desc: 'Reminders for scheduled check-outs' },
+                  { key: 'maintenanceAlerts', label: 'Maintenance Alerts',  desc: 'Alerts for room maintenance issues' },
+                  { key: 'systemUpdates',     label: 'System Updates',      desc: 'News about system features and updates' },
+                ] as const).map((item) => (
                   <div key={item.key} className="flex items-center justify-between py-4 border-b border-slate-100 dark:border-slate-700 last:border-0">
                     <div>
                       <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{item.label}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{item.desc}</p>
                     </div>
                     <ToggleSwitch
-                      checked={notifications[item.key as keyof typeof notifications]}
-                      onChange={(val) => setNotifications((prev) => ({ ...prev, [item.key]: val }))}
+                      checked={notifications[item.key]}
+                      onChange={(val) => setNotifications({ [item.key]: val })}
                     />
                   </div>
                 ))}
 
-                <div className="flex justify-end">
-                  <Button leftIcon={<Save className="h-4 w-4" />} isLoading={isSaving} onClick={handleSave}>
+                <div className="flex justify-end pt-4">
+                  <Button leftIcon={<Save className="h-4 w-4" />} onClick={handleSaveNotifications}>
                     Save Preferences
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {/* Security Tab */}
-          {activeTab === 'security' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Security Settings</CardTitle>
-              </CardHeader>
-              <div className="space-y-6">
-                <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-200 dark:border-emerald-800">
-                  <div className="flex items-center gap-3">
-                    <Shield className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                    <div>
-                      <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">Account Secure</p>
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400">Your account is protected</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
-                    <Key className="h-4 w-4" /> Change Password
-                  </h4>
-                  <div className="space-y-4">
-                    <Input label="Current Password" type="password" placeholder="Enter current password" />
-                    <Input label="New Password" type="password" placeholder="Min. 8 characters" />
-                    <Input label="Confirm New Password" type="password" placeholder="Repeat new password" />
-                  </div>
-                </div>
-
-                <div className="border-t border-slate-100 dark:border-slate-700 pt-6">
-                  <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4">Active Sessions</h4>
-                  <div className="space-y-3">
-                    {[
-                      { device: 'Chrome on Windows', location: 'New York, US', isCurrent: true, lastSeen: 'Now' },
-                      { device: 'Safari on iPhone', location: 'New York, US', isCurrent: false, lastSeen: '2 hours ago' },
-                    ].map((session) => (
-                      <div key={session.device} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
-                        <div>
-                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                            {session.device}
-                            {session.isCurrent && <Badge variant="success" size="sm">Current</Badge>}
-                          </p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">
-                            {session.location} · {session.lastSeen}
-                          </p>
-                        </div>
-                        {!session.isCurrent && (
-                          <button className="text-xs text-red-500 hover:text-red-600 font-medium">Revoke</button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex justify-end">
-                  <Button leftIcon={<Save className="h-4 w-4" />} isLoading={isSaving} onClick={handleSave}>
-                    Update Password
                   </Button>
                 </div>
               </div>
@@ -275,17 +219,14 @@ export function SettingsPage() {
                   <div className="grid grid-cols-3 gap-3">
                     {[
                       { value: 'light', label: 'Light', icon: <Sun className="h-5 w-5" /> },
-                      { value: 'dark', label: 'Dark', icon: <Moon className="h-5 w-5" /> },
-                      { value: 'system', label: 'System', icon: <Monitor className="h-5 w-5" /> },
+                      { value: 'dark',  label: 'Dark',  icon: <Moon className="h-5 w-5" /> },
                     ].map((t) => (
                       <button
                         key={t.value}
-                        onClick={() => {
-                          if (t.value !== 'system') setTheme(t.value as 'light' | 'dark');
-                        }}
+                        onClick={() => setTheme(t.value as 'light' | 'dark')}
                         className={cn(
                           'flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all',
-                          (theme === t.value || (t.value === 'system' && theme !== 'light' && theme !== 'dark'))
+                          theme === t.value
                             ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                             : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
                         )}
@@ -294,98 +235,206 @@ export function SettingsPage() {
                         <span className="text-sm font-medium">{t.label}</span>
                       </button>
                     ))}
+                    <button
+                      className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-slate-400 cursor-default opacity-50"
+                      title="System theme coming soon"
+                      disabled
+                    >
+                      <Monitor className="h-5 w-5" />
+                      <span className="text-sm font-medium">System</span>
+                    </button>
                   </div>
                 </div>
 
                 <div className="border-t border-slate-100 dark:border-slate-700 pt-6">
-                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Accent Color</p>
-                  <div className="flex flex-wrap gap-3">
-                    {[
-                      { label: 'Indigo', bg: 'bg-indigo-500', active: true },
-                      { label: 'Violet', bg: 'bg-violet-500', active: false },
-                      { label: 'Blue', bg: 'bg-blue-500', active: false },
-                      { label: 'Emerald', bg: 'bg-emerald-500', active: false },
-                      { label: 'Rose', bg: 'bg-rose-500', active: false },
-                    ].map((color) => (
-                      <button
-                        key={color.label}
-                        title={color.label}
-                        className={cn(
-                          'w-8 h-8 rounded-full transition-transform hover:scale-110',
-                          color.bg,
-                          color.active && 'ring-2 ring-offset-2 ring-indigo-500'
-                        )}
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Currency</p>
+                  <div className="flex gap-3 items-end">
+                    <div className="flex-1 max-w-xs">
+                      <Select
+                        value={currency}
+                        onChange={(e) => setCurrency(e.target.value)}
+                        options={CURRENCIES}
                       />
-                    ))}
+                    </div>
+                    <Button leftIcon={<Save className="h-4 w-4" />} onClick={handleSaveCurrency}>
+                      Save
+                    </Button>
                   </div>
-                </div>
-
-                <div className="border-t border-slate-100 dark:border-slate-700 pt-6">
-                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Sidebar</p>
-                  <div className="space-y-3">
-                    {[
-                      { label: 'Compact Mode', desc: 'Collapse sidebar by default', key: 'compact' },
-                      { label: 'Show Labels', desc: 'Always show navigation labels', key: 'labels' },
-                    ].map((item) => (
-                      <div key={item.key} className="flex items-center justify-between py-3 border-b border-slate-100 dark:border-slate-700 last:border-0">
-                        <div>
-                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{item.label}</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">{item.desc}</p>
-                        </div>
-                        <ToggleSwitch checked={false} onChange={() => {}} />
-                      </div>
-                    ))}
-                  </div>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+                    Affects all currency displays across the application.
+                  </p>
                 </div>
               </div>
             </Card>
           )}
 
-          {/* Tenant Settings Tab */}
+          {/* Hotel Settings Tab */}
           {activeTab === 'tenant' && (
             <Card>
               <CardHeader>
-                <CardTitle>Tenant Settings</CardTitle>
+                <CardTitle>Hotel Settings</CardTitle>
               </CardHeader>
               <div className="space-y-5">
-                <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800">
-                  <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide mb-1">Current Tenant</p>
-                  <p className="text-lg font-bold text-indigo-700 dark:text-indigo-300">Tenant ID: {user?.tenantId ?? 1}</p>
+                <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    These settings are saved locally in your browser. For centralized multi-device config, manage via the Properties page.
+                  </p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Input label="Hotel Name" defaultValue="Grand Hotel" placeholder="Your hotel name" />
-                  <Input label="Hotel Email" type="email" defaultValue="info@hotel.com" placeholder="contact@hotel.com" />
-                  <Input label="Phone Number" type="tel" placeholder="+1 555-0100" />
-                  <Input label="Website" placeholder="www.yourhotel.com" />
-                  <div className="sm:col-span-2">
-                    <Input label="Address" placeholder="Full address" />
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">Hotel Info</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                      label="Hotel Name"
+                      value={draft.hotelName}
+                      onChange={(e) => setDraft((p) => ({ ...p, hotelName: e.target.value }))}
+                      placeholder="Grand Hotel"
+                    />
+                    <Input
+                      label="Hotel Email"
+                      type="email"
+                      value={draft.hotelEmail}
+                      onChange={(e) => setDraft((p) => ({ ...p, hotelEmail: e.target.value }))}
+                      placeholder="info@hotel.com"
+                    />
+                    <Input
+                      label="Phone Number"
+                      type="tel"
+                      value={draft.phoneNumber}
+                      onChange={(e) => setDraft((p) => ({ ...p, phoneNumber: e.target.value }))}
+                      placeholder="+1 555-0100"
+                    />
+                    <Input
+                      label="Website"
+                      value={draft.website}
+                      onChange={(e) => setDraft((p) => ({ ...p, website: e.target.value }))}
+                      placeholder="www.yourhotel.com"
+                    />
+                    <div className="sm:col-span-2">
+                      <Input
+                        label="Address"
+                        value={draft.address}
+                        onChange={(e) => setDraft((p) => ({ ...p, address: e.target.value }))}
+                        placeholder="Full street address"
+                      />
+                    </div>
+                    <Input
+                      label="City"
+                      value={draft.city}
+                      onChange={(e) => setDraft((p) => ({ ...p, city: e.target.value }))}
+                      placeholder="City"
+                    />
+                    <Input
+                      label="Country"
+                      value={draft.country}
+                      onChange={(e) => setDraft((p) => ({ ...p, country: e.target.value }))}
+                      placeholder="Country"
+                    />
+                    <Select
+                      label="Timezone"
+                      value={draft.timezone}
+                      onChange={(e) => setDraft((p) => ({ ...p, timezone: e.target.value }))}
+                      options={TIMEZONES}
+                    />
                   </div>
-                  <Input label="City" placeholder="City" />
-                  <Input label="Country" placeholder="Country" />
-                  <Select
-                    label="Currency"
-                    value={currency}
-                    onChange={(e) => setCurrency(e.target.value)}
-                    options={CURRENCIES}
-                  />
-                  <Input label="Timezone" defaultValue="America/New_York" placeholder="Timezone" />
                 </div>
 
                 <div className="border-t border-slate-100 dark:border-slate-700 pt-5">
-                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Hotel Policies</p>
+                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">Hotel Policies</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Input label="Check-in Time" type="time" defaultValue="14:00" />
-                    <Input label="Check-out Time" type="time" defaultValue="11:00" />
-                    <Input label="Late Check-out Fee" type="number" placeholder="50" />
-                    <Input label="Cancellation Window (hours)" type="number" defaultValue="24" />
+                    <Input
+                      label="Check-in Time"
+                      type="time"
+                      value={draft.checkInTime}
+                      onChange={(e) => setDraft((p) => ({ ...p, checkInTime: e.target.value }))}
+                    />
+                    <Input
+                      label="Check-out Time"
+                      type="time"
+                      value={draft.checkOutTime}
+                      onChange={(e) => setDraft((p) => ({ ...p, checkOutTime: e.target.value }))}
+                    />
+                    <Input
+                      label="Late Check-out Fee"
+                      type="number"
+                      value={draft.lateCheckOutFee}
+                      onChange={(e) => setDraft((p) => ({ ...p, lateCheckOutFee: e.target.value }))}
+                      placeholder="e.g. 50"
+                    />
+                    <Input
+                      label="Cancellation Window (hours)"
+                      type="number"
+                      value={draft.cancellationWindowHours}
+                      onChange={(e) => setDraft((p) => ({ ...p, cancellationWindowHours: e.target.value }))}
+                    />
                   </div>
                 </div>
 
                 <div className="flex justify-end">
-                  <Button leftIcon={<Save className="h-4 w-4" />} isLoading={isSaving} onClick={handleSave}>
+                  <Button leftIcon={<Save className="h-4 w-4" />} isLoading={isSaving} onClick={handleSaveTenant}>
                     Save Settings
                   </Button>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Security Tab */}
+          {activeTab === 'security' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Security</CardTitle>
+              </CardHeader>
+              <div className="space-y-6">
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-200 dark:border-emerald-800">
+                  <div className="flex items-center gap-3">
+                    <Shield className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                    <div>
+                      <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">Account Secure</p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400">Your account is protected with a strong password</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2 flex items-center gap-2">
+                    <Key className="h-4 w-4" /> Change Password
+                  </h4>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                    We'll send a secure password reset link to <span className="font-medium text-slate-700 dark:text-slate-300">{user?.email}</span>.
+                  </p>
+                  <Button
+                    variant="outline"
+                    leftIcon={<Mail className="h-4 w-4" />}
+                    isLoading={isSendingReset}
+                    onClick={handleSendResetEmail}
+                  >
+                    Send Password Reset Email
+                  </Button>
+                </div>
+
+                <div className="border-t border-slate-100 dark:border-slate-700 pt-6">
+                  <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Account Info</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
+                      <div>
+                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Email</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{user?.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
+                      <div>
+                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Role</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{user?.roles?.join(', ') ?? '—'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
+                      <div>
+                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Tenant ID</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{user?.tenantId ?? '—'}</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </Card>

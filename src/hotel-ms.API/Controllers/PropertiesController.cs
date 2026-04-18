@@ -59,7 +59,7 @@ namespace hotelier_core_app.API.Controllers
         {
             AuditLog auditLog = new AuditLog
             {
-                Action = UserAction.AddProperty,
+                Action = UserAction.UpdateProperty,
                 DatePerformed = DateTime.UtcNow,
                 PerformedBy = _tokenHelper.GetUserFullName(Request),
                 IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",

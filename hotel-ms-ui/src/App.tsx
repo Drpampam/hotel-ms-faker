@@ -20,6 +20,10 @@ const PropertiesPage   = lazy(() => import('./pages/PropertiesPage'));
 const HousekeepingPage = lazy(() => import('./pages/HousekeepingPage'));
 const ReportsPage      = lazy(() => import('./pages/ReportsPage'));
 const SettingsPage     = lazy(() => import('./pages/SettingsPage'));
+const BillingPage      = lazy(() => import('./pages/BillingPage'));
+const DiscountsPage    = lazy(() => import('./pages/DiscountsPage'));
+const ServiceRequestsPage = lazy(() => import('./pages/ServiceRequestsPage'));
+const AuditLogsPage    = lazy(() => import('./pages/AuditLogsPage'));
 
 // Role constants — single source of truth
 const STAFF_ROLES   = ['SuperAdmin', 'Admin', 'FrontDesk', 'Housekeeping', 'Developer'];
@@ -150,6 +154,46 @@ function App() {
               <RoleRoute allowedRoles={ADMIN_ROLES}>
                 <Suspense fallback={<PageLoader />}>
                   <SettingsPage />
+                </Suspense>
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/billing"
+            element={
+              <RoleRoute allowedRoles={DESK_ROLES}>
+                <Suspense fallback={<PageLoader />}>
+                  <BillingPage />
+                </Suspense>
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/discounts"
+            element={
+              <RoleRoute allowedRoles={ADMIN_ROLES}>
+                <Suspense fallback={<PageLoader />}>
+                  <DiscountsPage />
+                </Suspense>
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/service-requests"
+            element={
+              <RoleRoute allowedRoles={BOOKING_ROLES}>
+                <Suspense fallback={<PageLoader />}>
+                  <ServiceRequestsPage />
+                </Suspense>
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/audit-logs"
+            element={
+              <RoleRoute allowedRoles={ADMIN_ROLES}>
+                <Suspense fallback={<PageLoader />}>
+                  <AuditLogsPage />
                 </Suspense>
               </RoleRoute>
             }

@@ -403,5 +403,89 @@ export interface OccupancyDataPoint {
   checkOuts: number;
 }
 
+// Billing / Invoices
+export type InvoiceStatus = 'Issued' | 'Paid' | 'Void';
+
+export interface InvoiceLineItem {
+  id: number;
+  description: string;
+  category: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+}
+
+export interface Invoice {
+  id: number;
+  invoiceNumber: string;
+  reservationId: number;
+  guestId: number;
+  guestName?: string;
+  guestEmail?: string;
+  issueDate: string;
+  dueDate: string;
+  subTotal: number;
+  taxAmount: number;
+  discountAmount: number;
+  totalAmount: number;
+  status: InvoiceStatus;
+  lineItems: InvoiceLineItem[];
+  creationDate: string;
+}
+
+// Discounts
+export interface Discount {
+  id: number;
+  name: string;
+  description?: string;
+  percentage: number;
+  fixedAmount?: number;
+  isActive: boolean;
+  startDate?: string;
+  endDate?: string;
+  creationDate: string;
+}
+
+export interface CreateDiscountRequest {
+  name: string;
+  description?: string;
+  percentage?: number;
+  fixedAmount?: number;
+  isActive: boolean;
+  startDate?: string;
+  endDate?: string;
+}
+
+// Service Requests
+export type ServiceRequestState = 'Pending' | 'InProgress' | 'Completed' | 'Cancelled';
+export type ServiceRequestTrigger = 'Start' | 'Complete' | 'Cancel';
+
+export interface ServiceRequest {
+  id: number;
+  reservationId: number;
+  roomId?: number;
+  roomNumber?: string;
+  requestType: string;
+  description?: string;
+  priority: string;
+  state: ServiceRequestState;
+  assignedTo?: string;
+  notes?: string;
+  createdBy?: string;
+  creationDate: string;
+  lastModifiedDate?: string;
+}
+
+// Audit Logs
+export interface AuditLog {
+  id: number;
+  action: string;
+  performedBy: string;
+  performerEmail: string;
+  performedAgainst?: string;
+  ipAddress?: string;
+  datePerformed: string;
+}
+
 // Theme
 export type Theme = 'light' | 'dark';

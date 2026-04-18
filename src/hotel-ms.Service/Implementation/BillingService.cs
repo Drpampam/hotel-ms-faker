@@ -134,7 +134,7 @@ namespace hotelier_core_app.Service.Implementation
             }
 
             _auditLogCommandRepository.Add(auditLog);
-            await _invoiceCommandRepository.SaveAsync();
+            await _lineItemCommandRepository.SaveAsync();
 
             _logger.LogInformation("Invoice {InvoiceNumber} generated successfully", invoice.InvoiceNumber);
 
@@ -227,6 +227,7 @@ namespace hotelier_core_app.Service.Implementation
 
             await _invoiceCommandRepository.UpdateAsync(invoice);
             _auditLogCommandRepository.Add(auditLog);
+            await _auditLogCommandRepository.SaveAsync();
 
             var guest = await _userManager.FindByIdAsync(invoice.GuestId.ToString());
             var response = BuildInvoiceResponse(invoice, invoice.LineItems?.ToList() ?? new(), guest);

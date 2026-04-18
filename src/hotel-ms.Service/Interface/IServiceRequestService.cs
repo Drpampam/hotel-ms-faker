@@ -9,8 +9,8 @@ namespace hotelier_core_app.Service.Interface
     {
         // CRUD
         Task<BaseResponse<ServiceRequestResponseDTO>> CreateServiceRequestAsync(CreateServiceRequestDTO request, AuditLog auditLog);
-        Task<BaseResponse<ServiceRequestResponseDTO>> GetServiceRequestByIdAsync(long serviceRequestId);
-        Task<PageBaseResponse<List<ServiceRequestResponseDTO>>> GetServiceRequestsAsync(GetServiceRequestsInputDTO input);
+        Task<BaseResponse<ServiceRequestResponseDTO>> GetServiceRequestByIdAsync(long serviceRequestId, string? callerEmail = null);
+        Task<PageBaseResponse<List<ServiceRequestResponseDTO>>> GetServiceRequestsAsync(GetServiceRequestsInputDTO input, string? callerEmail = null);
 
         // State machine
         Task<BaseResponse<ServiceRequestStateResponseDTO>> ChangeServiceRequestStateAsync(long serviceRequestId, ServiceRequestTrigger trigger);

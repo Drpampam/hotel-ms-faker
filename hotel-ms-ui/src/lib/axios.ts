@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://hotel-ms-api-tfvt.onrender.com';
 
@@ -10,32 +10,78 @@ const api = axios.create({
   },
 });
 
-// Request interceptor — attach token + tenant ID to every request
+// --- Token refresh state ---
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (token: string) => void;
+  reject: (err: unknown) => void;
+}> = [];
+
+function processQueue(error: unknown, token: string | null) {
+  failedQueue.forEach(({ resolve, reject }) => {
+    if (error || !token) reject(error);
+    else resolve(token);
+  });
+  failedQueue = [];
+}
+
+function clearAuth() {
+  localStorage.removeItem('hotel_ms_token');
+  localStorage.removeItem('hotel_ms_user');
+  localStorage.removeItem('hotel_ms_refresh_token');
+  localStorage.removeItem('hotel-ms-auth');
+}
+
+async function attemptRefresh(): Promise<string> {
+  const refreshToken = localStorage.getItem('hotel_ms_refresh_token');
+  if (!refreshToken) throw new Error('No refresh token');
+
+  const res = await fetch(
+    `${BASE_URL}/api/v1/User/refresh-token?currentRefreshToken=${encodeURIComponent(refreshToken)}`,
+    { method: 'POST' }
+  );
+  if (!res.ok) throw new Error('Refresh failed');
+
+  const newToken = res.headers.get('token');
+  const newRefreshToken = res.headers.get('refreshtoken');
+  if (!newToken) throw new Error('No token in refresh response');
+
+  localStorage.setItem('hotel_ms_token', newToken);
+  if (newRefreshToken) localStorage.setItem('hotel_ms_refresh_token', newRefreshToken);
+
+  // Update persisted Zustand store so future page loads pick up the new token
+  try {
+    const stored = localStorage.getItem('hotel-ms-auth');
+    if (stored) {
+      const parsed = JSON.parse(stored) as { state?: Record<string, unknown> };
+      if (parsed.state) {
+        parsed.state.token = newToken;
+        localStorage.setItem('hotel-ms-auth', JSON.stringify(parsed));
+      }
+    }
+  } catch {
+    // non-fatal
+  }
+
+  return newToken;
+}
+
+// Request interceptor — attach token
 api.interceptors.request.use(
   (config) => {
-    // Token: prefer zustand persisted store, fall back to raw localStorage
     let token: string | null = null;
     try {
       const stored = localStorage.getItem('hotel-ms-auth');
       if (stored) {
-        const parsed = JSON.parse(stored) as { state?: { token?: string; tenantId?: number } };
+        const parsed = JSON.parse(stored) as { state?: { token?: string } };
         token = parsed?.state?.token ?? null;
       }
     } catch {
       // ignore parse errors
     }
-    if (!token) {
-      token = localStorage.getItem('hotel_ms_token');
-    }
+    if (!token) token = localStorage.getItem('hotel_ms_token');
 
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    // Do not send X-Tenant-Id — the middleware defaults to 'public' schema
-    // which is where all data lives. Sending a numeric tenant ID routes queries
-    // to an empty tenant-specific schema (e.g. tenant_1) causing 42P01 errors.
-
+    if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
   },
   (error) => Promise.reject(error)
@@ -44,27 +90,64 @@ api.interceptors.request.use(
 // Response interceptor
 api.interceptors.response.use(
   (response) => {
-    // Business-logic failures: HTTP 200 but status:false in body
     const body = response.data as { status?: boolean; message?: string } | undefined;
     if (body && body.status === false) {
       return Promise.reject(new Error(body.message || 'Request failed'));
     }
     return response;
   },
-  (error) => {
+  async (error) => {
     const status = error.response?.status as number | undefined;
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-    if (status === 401) {
-      localStorage.removeItem('hotel_ms_token');
-      localStorage.removeItem('hotel_ms_user');
-      localStorage.removeItem('hotel_ms_refresh_token');
-      localStorage.removeItem('hotel-ms-auth');
-      window.location.href = '/login';
+    if (status === 401 && !originalRequest._retry) {
+      const refreshToken = localStorage.getItem('hotel_ms_refresh_token');
+
+      if (!refreshToken) {
+        clearAuth();
+        window.location.href = '/login';
+        return Promise.reject(error);
+      }
+
+      if (isRefreshing) {
+        return new Promise<string>((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then((token) => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return api(originalRequest);
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const newToken = await attemptRefresh();
+        processQueue(null, newToken);
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        clearAuth();
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
+    if (status === 403) {
+      import('./store').then(({ useNotificationStore }) => {
+        useNotificationStore.getState().addNotification({
+          type: 'error',
+          title: 'Permission denied',
+          message: 'You do not have access to perform this action.',
+        });
+      });
       return Promise.reject(error);
     }
 
     if (status === 400) {
-      // FluentValidation / data-annotation errors: { message, data: [{field, message}] }
       const body = error.response?.data as {
         message?: string;
         data?: { field?: string; message: string }[];

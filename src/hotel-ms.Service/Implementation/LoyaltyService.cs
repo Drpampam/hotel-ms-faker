@@ -69,6 +69,7 @@ namespace hotelier_core_app.Service.Implementation
                     CreationDate = DateTime.UtcNow
                 };
                 _loyaltyCommandRepository.Add(record);
+                await _loyaltyCommandRepository.SaveAsync();
             }
             else
             {
@@ -107,6 +108,7 @@ namespace hotelier_core_app.Service.Implementation
             await SyncGuestTierAsync(userId, newBalance);
 
             _auditLogCommandRepository.Add(auditLog);
+            await _auditLogCommandRepository.SaveAsync();
 
             var user = await _userManager.FindByIdAsync(userId.ToString());
             var response = BuildLoyaltyResponse(record, user);

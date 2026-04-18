@@ -9,7 +9,8 @@ import { Select } from '../components/ui/Select';
 import { useToast, useAuthStore } from '../lib/store';
 import { housekeepingService } from '../services/housekeeping.service';
 import { roomService } from '../services/room.service';
-import type { HousekeepingTask, HousekeepingTaskTrigger, Room } from '../types';
+import { userService } from '../services/user.service';
+import type { HousekeepingTask, HousekeepingTaskTrigger, Room, User } from '../types';
 import { cn, formatDate } from '../lib/utils';
 
 // Columns match backend HousekeepingTaskState enum exactly
@@ -138,11 +139,12 @@ function TaskCard({ task, onMove }: TaskCardProps) {
 export function HousekeepingPage() {
   const [tasks, setTasks] = useState<HousekeepingTask[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [staffUsers, setStaffUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newTask, setNewTask] = useState({
-    roomId: '', taskType: 'Cleaning', priority: 'Normal', notes: '', scheduledAt: '',
+    roomId: '', taskType: 'Cleaning', priority: 'Normal', notes: '', scheduledAt: '', assignedToUserId: '',
   });
   const toast = useToast();
   const { tenantId } = useAuthStore();
@@ -150,13 +152,19 @@ export function HousekeepingPage() {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [taskData, roomData] = await Promise.allSettled([
+      const [taskData, roomData, userData] = await Promise.allSettled([
         housekeepingService.getTasks({ tenantId: tenantId ?? undefined }),
         roomService.getAll(),
+        userService.getAll(),
       ]);
       if (taskData.status === 'fulfilled') setTasks(taskData.value);
       else toast.error('Failed to load tasks', 'Could not fetch housekeeping tasks');
       if (roomData.status === 'fulfilled') setRooms(roomData.value);
+      if (userData.status === 'fulfilled') {
+        setStaffUsers(userData.value.filter((u) =>
+          u.userRoles?.some((r) => ['Housekeeping', 'FrontDesk', 'Admin', 'SuperAdmin'].includes(r.name))
+        ));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -184,12 +192,13 @@ export function HousekeepingPage() {
         priority: newTask.priority,
         notes: newTask.notes || undefined,
         scheduledAt: newTask.scheduledAt || undefined,
+        assignedToUserId: newTask.assignedToUserId ? Number(newTask.assignedToUserId) : undefined,
         tenantId: tenantId ?? undefined,
       });
       setTasks((prev) => [created, ...prev]);
       toast.success('Task created', 'New housekeeping task added');
       setIsAddOpen(false);
-      setNewTask({ roomId: '', taskType: 'Cleaning', priority: 'Normal', notes: '', scheduledAt: '' });
+      setNewTask({ roomId: '', taskType: 'Cleaning', priority: 'Normal', notes: '', scheduledAt: '', assignedToUserId: '' });
     } catch (err) {
       toast.error('Failed to create task', err instanceof Error ? err.message : 'Could not create housekeeping task');
     } finally {
@@ -331,6 +340,15 @@ export function HousekeepingPage() {
               { value: 'Normal', label: 'Normal' },
               { value: 'High', label: 'High' },
               { value: 'Urgent', label: 'Urgent' },
+            ]}
+          />
+          <Select
+            label="Assign To"
+            value={newTask.assignedToUserId}
+            onChange={(e) => setNewTask((p) => ({ ...p, assignedToUserId: e.target.value }))}
+            options={[
+              { value: '', label: 'Unassigned' },
+              ...staffUsers.map((u) => ({ value: String(u.id), label: u.fullName || `${u.firstName} ${u.lastName}`.trim() || u.email })),
             ]}
           />
           <Input

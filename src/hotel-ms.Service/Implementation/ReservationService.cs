@@ -60,11 +60,29 @@ namespace hotelier_core_app.Service.Implementation
             _logger = logger;
         }
 
-        public async Task<BaseResponse<ReservationResponseDTO>> CreateReservationAsync(CreateReservationRequestDTO request, AuditLog auditLog)
+        // Returns the GuestProfile.Id for the given caller email, or null if not found.
+        private async Task<long?> ResolveGuestProfileIdByEmail(string email)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+            if (user == null) return null;
+            var profile = await _context.GuestProfiles.FirstOrDefaultAsync(g => g.UserId == user.Id && !g.IsDeleted);
+            return profile?.Id;
+        }
+
+        public async Task<BaseResponse<ReservationResponseDTO>> CreateReservationAsync(CreateReservationRequestDTO request, AuditLog auditLog, string? callerEmail = null)
         {
             // Npgsql requires DateTimeKind.Utc for timestamptz columns — date-only strings arrive as Unspecified
             request.CheckInDate = DateTime.SpecifyKind(request.CheckInDate, DateTimeKind.Utc);
             request.CheckOutDate = DateTime.SpecifyKind(request.CheckOutDate, DateTimeKind.Utc);
+
+            // Guest-role callers may only book for themselves — override any supplied guestId
+            if (!string.IsNullOrEmpty(callerEmail))
+            {
+                var ownProfileId = await ResolveGuestProfileIdByEmail(callerEmail);
+                if (ownProfileId == null)
+                    return BaseResponse<ReservationResponseDTO>.Failure(new ReservationResponseDTO(), "No guest profile found for your account. Please contact the front desk.", ResponseStatusCode.UserDoesNotExist);
+                request.GuestId = ownProfileId.Value;
+            }
 
             _logger.LogInformation("Creating reservation for room {RoomId}, guest {GuestId}, dates {CheckIn}-{CheckOut}",
                 request.RoomId, request.GuestId, request.CheckInDate, request.CheckOutDate);
@@ -228,13 +246,14 @@ namespace hotelier_core_app.Service.Implementation
 
             await _reservationCommandRepository.UpdateAsync(reservation);
             _auditLogCommandRepository.Add(auditLog);
+            await _auditLogCommandRepository.SaveAsync();
 
             var guest = await _context.GuestProfiles.FindAsync(reservation.GuestId);
             var response = BuildReservationResponse(reservation, room, guest);
             return BaseResponse<ReservationResponseDTO>.Success(response, ResponseMessages.ReservationUpdated, ResponseStatusCode.ReservationUpdated);
         }
 
-        public async Task<BaseResponse<ReservationResponseDTO>> GetReservationByIdAsync(long reservationId)
+        public async Task<BaseResponse<ReservationResponseDTO>> GetReservationByIdAsync(long reservationId, string? callerEmail = null)
         {
             var reservation = _reservationQueryRepository.FindByInclude(
                 r => r.Id == reservationId,
@@ -244,13 +263,27 @@ namespace hotelier_core_app.Service.Implementation
             if (reservation == null)
                 return BaseResponse<ReservationResponseDTO>.Failure(new ReservationResponseDTO(), ResponseMessages.ReservationNotFound, ResponseStatusCode.ReservationNotFound);
 
+            if (!string.IsNullOrEmpty(callerEmail))
+            {
+                var ownProfileId = await ResolveGuestProfileIdByEmail(callerEmail);
+                if (ownProfileId == null || reservation.GuestId != ownProfileId.Value)
+                    return BaseResponse<ReservationResponseDTO>.Failure(new ReservationResponseDTO(), ResponseMessages.ReservationNotFound, ResponseStatusCode.ReservationNotFound);
+            }
+
             var expenses = await _expenseQueryRepository.GetByAsync(e => e.ReservationId == reservationId && !e.IsDeleted);
             var response = BuildReservationResponse(reservation, reservation.Room, reservation.GuestProfile, expenses.ToList());
             return BaseResponse<ReservationResponseDTO>.Success(response, ResponseMessages.OperationSuccessful, ResponseStatusCode.OperationSuccessful);
         }
 
-        public async Task<PageBaseResponse<List<ReservationResponseDTO>>> GetReservationsAsync(GetReservationsInputDTO input)
+        public async Task<PageBaseResponse<List<ReservationResponseDTO>>> GetReservationsAsync(GetReservationsInputDTO input, string? callerEmail = null)
         {
+            // Guest-role callers may only see their own reservations
+            if (!string.IsNullOrEmpty(callerEmail))
+            {
+                var ownProfileId = await ResolveGuestProfileIdByEmail(callerEmail);
+                input.GuestId = ownProfileId ?? -1; // -1 returns nothing if no profile found
+            }
+
             // Use direct context query with Include so Room and User navigation properties are populated.
             // The generic repository's GetByAsync does not eager-load navigation properties,
             // causing r.Room and r.GuestProfile to be null and producing empty reservation records.
@@ -300,6 +333,7 @@ namespace hotelier_core_app.Service.Implementation
 
             await _reservationCommandRepository.UpdateAsync(reservation);
             _auditLogCommandRepository.Add(auditLog);
+            await _auditLogCommandRepository.SaveAsync();
 
             var room = await _roomQueryRepository.FindAsync(reservation.RoomId);
             var guest = await _context.GuestProfiles.FindAsync(reservation.GuestId);
@@ -341,6 +375,7 @@ namespace hotelier_core_app.Service.Implementation
             }
 
             _auditLogCommandRepository.Add(auditLog);
+            await _auditLogCommandRepository.SaveAsync();
 
             var guest = await _context.GuestProfiles.FindAsync(reservation.GuestId);
 
@@ -399,6 +434,7 @@ namespace hotelier_core_app.Service.Implementation
             }
 
             _auditLogCommandRepository.Add(auditLog);
+            await _context.SaveChangesAsync();
 
             var guest = await _context.GuestProfiles.FindAsync(reservation.GuestId);
 
@@ -424,6 +460,7 @@ namespace hotelier_core_app.Service.Implementation
 
             await _reservationCommandRepository.UpdateAsync(reservation);
             _auditLogCommandRepository.Add(auditLog);
+            await _auditLogCommandRepository.SaveAsync();
 
             var room = await _roomQueryRepository.FindAsync(reservation.RoomId);
             var guest = await _context.GuestProfiles.FindAsync(reservation.GuestId);

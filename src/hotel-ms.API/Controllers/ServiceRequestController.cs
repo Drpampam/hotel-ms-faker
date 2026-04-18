@@ -48,21 +48,31 @@ namespace hotelier_core_app.API.Controllers
         }
 
         [HttpGet("{id}")]
-        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Developer")]
+        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Guest,Developer")]
         [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<ServiceRequestResponseDTO>))]
         public async Task<IActionResult> GetServiceRequest(long id)
         {
-            var result = await _serviceRequestService.GetServiceRequestByIdAsync(id);
+            var roles = _tokenHelper.GetUserRoles(Request);
+            var callerEmail = IsGuestOnly(roles) ? _tokenHelper.GetUserEmail(Request) : null;
+            var result = await _serviceRequestService.GetServiceRequestByIdAsync(id, callerEmail);
             return Ok(result);
         }
 
         [HttpGet]
-        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Developer")]
+        [Authorize(Roles = "Admin,SuperAdmin,FrontDesk,Guest,Developer")]
         [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(PageBaseResponse<List<ServiceRequestResponseDTO>>))]
         public async Task<IActionResult> GetServiceRequests([FromQuery] GetServiceRequestsInputDTO input)
         {
-            var result = await _serviceRequestService.GetServiceRequestsAsync(input);
+            var roles = _tokenHelper.GetUserRoles(Request);
+            var callerEmail = IsGuestOnly(roles) ? _tokenHelper.GetUserEmail(Request) : null;
+            var result = await _serviceRequestService.GetServiceRequestsAsync(input, callerEmail);
             return Ok(result);
+        }
+
+        private static bool IsGuestOnly(List<string> roles)
+        {
+            var staffRoles = new[] { "SuperAdmin", "Admin", "FrontDesk", "Housekeeping", "Developer" };
+            return roles.Contains("Guest") && !staffRoles.Any(roles.Contains);
         }
 
         /// <summary>

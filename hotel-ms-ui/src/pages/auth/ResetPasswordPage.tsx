@@ -5,9 +5,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Hotel, Lock, Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react';
 import { authService } from '../../services/auth.service';
+import { passwordSchema } from '../../lib/utils';
 
 const schema = z.object({
-  newPassword: z.string().min(6, 'Password must be at least 6 characters'),
+  newPassword: passwordSchema,
   confirmPassword: z.string().min(1, 'Please confirm your password'),
 }).refine((d) => d.newPassword === d.confirmPassword, {
   message: 'Passwords do not match',

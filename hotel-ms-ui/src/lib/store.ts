@@ -194,6 +194,74 @@ export const useNotificationHistoryStore = create<NotificationHistoryStore>()((s
   clearHistory: () => set({ history: [], unreadCount: 0 }),
 }));
 
+// Settings Store — persisted to localStorage
+export interface NotificationPrefs {
+  newReservations: boolean;
+  checkInReminders: boolean;
+  checkOutReminders: boolean;
+  maintenanceAlerts: boolean;
+  systemUpdates: boolean;
+}
+
+export interface TenantConfig {
+  hotelName: string;
+  hotelEmail: string;
+  phoneNumber: string;
+  website: string;
+  address: string;
+  city: string;
+  country: string;
+  timezone: string;
+  checkInTime: string;
+  checkOutTime: string;
+  lateCheckOutFee: string;
+  cancellationWindowHours: string;
+}
+
+interface SettingsStore {
+  notifications: NotificationPrefs;
+  tenantConfig: TenantConfig;
+  setNotifications: (prefs: Partial<NotificationPrefs>) => void;
+  setTenantConfig: (config: Partial<TenantConfig>) => void;
+}
+
+const DEFAULT_NOTIFICATIONS: NotificationPrefs = {
+  newReservations: true,
+  checkInReminders: true,
+  checkOutReminders: false,
+  maintenanceAlerts: true,
+  systemUpdates: false,
+};
+
+const DEFAULT_TENANT_CONFIG: TenantConfig = {
+  hotelName: '',
+  hotelEmail: '',
+  phoneNumber: '',
+  website: '',
+  address: '',
+  city: '',
+  country: '',
+  timezone: 'UTC',
+  checkInTime: '14:00',
+  checkOutTime: '11:00',
+  lateCheckOutFee: '',
+  cancellationWindowHours: '24',
+};
+
+export const useSettingsStore = create<SettingsStore>()(
+  persist(
+    (set) => ({
+      notifications: DEFAULT_NOTIFICATIONS,
+      tenantConfig: DEFAULT_TENANT_CONFIG,
+      setNotifications: (prefs) =>
+        set((state) => ({ notifications: { ...state.notifications, ...prefs } })),
+      setTenantConfig: (config) =>
+        set((state) => ({ tenantConfig: { ...state.tenantConfig, ...config } })),
+    }),
+    { name: 'hotel-ms-settings' }
+  )
+);
+
 // Helper hook for notifications — returns a stable object so useCallback deps on `toast` don't cause infinite loops
 export function useToast() {
   const addNotification = useNotificationStore((s) => s.addNotification);

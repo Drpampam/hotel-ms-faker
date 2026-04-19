@@ -25,8 +25,10 @@ const BillingPage      = lazy(() => import('./pages/BillingPage'));
 const DiscountsPage    = lazy(() => import('./pages/DiscountsPage'));
 const ServiceRequestsPage = lazy(() => import('./pages/ServiceRequestsPage'));
 const AuditLogsPage    = lazy(() => import('./pages/AuditLogsPage'));
+const TenantsPage      = lazy(() => import('./pages/TenantsPage'));
 
 // Role constants — single source of truth
+const DEV_ROLES     = ['Developer'];
 const STAFF_ROLES   = ['SuperAdmin', 'Admin', 'FrontDesk', 'Housekeeping', 'Developer'];
 const ADMIN_ROLES   = ['SuperAdmin', 'Admin', 'Developer'];
 const DESK_ROLES    = ['SuperAdmin', 'Admin', 'FrontDesk', 'Developer'];
@@ -196,6 +198,16 @@ function App() {
               <RoleRoute allowedRoles={ADMIN_ROLES}>
                 <Suspense fallback={<PageLoader />}>
                   <AuditLogsPage />
+                </Suspense>
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/tenants"
+            element={
+              <RoleRoute allowedRoles={DEV_ROLES}>
+                <Suspense fallback={<PageLoader />}>
+                  <TenantsPage />
                 </Suspense>
               </RoleRoute>
             }

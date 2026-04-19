@@ -32,4 +32,19 @@ namespace hotelier_core_app.Model.DTOs.Response
         public DateTime? ExpiresAt { get; set; }
         public int? DaysRemaining { get; set; }
     }
+
+    public class TenantSummaryDTO
+    {
+        public long Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string AdminEmail { get; set; } = string.Empty;
+        public string PlanLabel { get; set; } = string.Empty;
+        public PlanType? PlanType { get; set; }
+        public bool IsActive { get; set; }
+        public bool IsExpired { get; set; }
+        public bool IsUnlimited { get; set; }
+        public DateTime? ExpiresAt { get; set; }
+        public int? DaysRemaining { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
 }

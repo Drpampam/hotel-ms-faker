@@ -45,6 +45,20 @@ export interface GenerateCodeResponse {
   planLabel: string;
 }
 
+export interface TenantSummary {
+  id: number;
+  name: string;
+  adminEmail: string;
+  planType: number;
+  planLabel: string;
+  isActive: boolean;
+  isExpired: boolean;
+  isUnlimited: boolean;
+  expiresAt: string | null;
+  daysRemaining: number | null;
+  createdAt: string;
+}
+
 const activationService = {
   async activate(data: ActivateTenantRequest): Promise<ActivateTenantResponse> {
     const res = await api.post<{ data: ActivateTenantResponse }>(`${BASE}/activate`, data);
@@ -63,6 +77,11 @@ const activationService = {
   async generateCode(data: GenerateCodeRequest): Promise<GenerateCodeResponse> {
     const res = await api.post<{ data: GenerateCodeResponse }>(`${BASE}/generate`, data);
     return res.data.data;
+  },
+
+  async getAllTenants(): Promise<TenantSummary[]> {
+    const res = await api.get<{ data: TenantSummary[] }>(`${BASE}/tenants`);
+    return res.data.data ?? [];
   },
 };
 

@@ -62,6 +62,15 @@ public class ActivationController : ControllerBase
         return result.Status ? Ok(result) : BadRequest(result);
     }
 
+    [Authorize(Policy = "DeveloperPolicy")]
+    [HttpGet("tenants")]
+    [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<List<TenantSummaryDTO>>))]
+    public async Task<IActionResult> GetAllTenants()
+    {
+        var result = await _activationService.GetAllTenantsAsync();
+        return Ok(result);
+    }
+
     [Authorize(Policy = "AdminPolicy")]
     [HttpPost("renew/{tenantId}")]
     [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse))]

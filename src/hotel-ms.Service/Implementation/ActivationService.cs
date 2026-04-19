@@ -296,6 +296,52 @@ namespace hotelier_core_app.Service.Implementation
             return BaseResponse.Success($"Subscription renewed to {PlanLabel(activationCode.PlanType)} plan successfully.");
         }
 
+        public async Task<BaseResponse<List<TenantSummaryDTO>>> GetAllTenantsAsync()
+        {
+            _tenantProvider.SetSchema("public");
+            var tenants = await _context.Tenants
+                .Where(t => !t.IsDeleted)
+                .OrderBy(t => t.Id)
+                .ToListAsync();
+
+            var now = DateTime.UtcNow;
+            var result = new List<TenantSummaryDTO>();
+
+            foreach (var tenant in tenants)
+            {
+                var adminEmail = await _context.Users
+                    .Where(u => u.TenantId == tenant.Id)
+                    .OrderBy(u => u.Id)
+                    .Select(u => u.Email)
+                    .FirstOrDefaultAsync() ?? string.Empty;
+
+                var planType = tenant.PlanType ?? PlanType.Trial;
+                var isUnlimited = planType == PlanType.Unlimited;
+                var isExpired = !isUnlimited && tenant.SubscriptionEndDate.HasValue && tenant.SubscriptionEndDate < now;
+                var daysRemaining = isUnlimited ? (int?)null
+                    : tenant.SubscriptionEndDate.HasValue
+                        ? Math.Max(0, (int)(tenant.SubscriptionEndDate.Value - now).TotalDays)
+                        : 0;
+
+                result.Add(new TenantSummaryDTO
+                {
+                    Id = tenant.Id,
+                    Name = tenant.Name ?? string.Empty,
+                    AdminEmail = adminEmail,
+                    PlanType = planType,
+                    PlanLabel = PlanLabel(planType),
+                    IsActive = !isExpired,
+                    IsExpired = isExpired,
+                    IsUnlimited = isUnlimited,
+                    ExpiresAt = tenant.SubscriptionEndDate,
+                    DaysRemaining = daysRemaining,
+                    CreatedAt = tenant.CreationDate
+                });
+            }
+
+            return BaseResponse<List<TenantSummaryDTO>>.Success(result, "Tenants retrieved.");
+        }
+
         // ── Helpers ──────────────────────────────────────────────────────────────
 
         private static (DateTime start, DateTime? end) PlanDates(PlanType planType)

@@ -10,4 +10,5 @@ public interface IActivationService : IAutoDependencyService
     Task<BaseResponse<ActivateTenantResponseDTO>> ActivateTenantAsync(ActivateTenantRequestDTO request, string ipAddress);
     Task<BaseResponse<SubscriptionStatusResponseDTO>> GetSubscriptionStatusAsync(long tenantId);
     Task<BaseResponse> RenewSubscriptionAsync(long tenantId, string code, string callerEmail, AuditLog auditLog);
+    Task<BaseResponse<List<TenantSummaryDTO>>> GetAllTenantsAsync();
 }

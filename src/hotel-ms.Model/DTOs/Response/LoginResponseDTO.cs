@@ -24,5 +24,6 @@
         /// Gets or sets the list of roles assigned to the user.
         /// </summary>
         public List<string>? Roles { get; set; }
+        public long? TenantId { get; set; }
     }
 }

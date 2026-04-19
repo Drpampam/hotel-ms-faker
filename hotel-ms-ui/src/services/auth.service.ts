@@ -21,15 +21,20 @@ export const authService = {
       throw new Error(response.data?.message ?? 'Login failed: no token received');
     }
 
-    const data = response.data?.data;
+    const data = response.data?.data as (typeof response.data.data & { tenantId?: number }) | undefined;
+    // TenantId comes from response body or the X-Tenant-Id header set by the server.
+    const tenantIdHeader = response.headers['x-tenant-id'];
+    const tenantId = data?.tenantId ?? (tenantIdHeader ? Number(tenantIdHeader) : 1);
+
     const user: AuthUser = {
       email: data?.email ?? credentials.email,
       fullName: data?.fullName ?? credentials.email,
       roles: data?.roles ?? [],
-      tenantId: 1,
+      tenantId,
       picture: data?.picture,
     };
 
+    localStorage.setItem('hotel_ms_refresh_token', refreshToken ?? '');
     return { token, refreshToken: refreshToken ?? '', user };
   },
 
@@ -48,7 +53,7 @@ export const authService = {
         email: data.email ?? email,
         fullName: data.fullName ?? email,
         roles: (data.userRoles ?? []).map((r) => r.name),
-        tenantId: 1,
+        tenantId: (data as typeof data & { tenantId?: number }).tenantId ?? 1,
       };
     } catch {
       return null;

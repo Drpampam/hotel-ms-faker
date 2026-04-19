@@ -3,33 +3,44 @@ using System.Globalization;
 
 namespace hotelier_core_app.API.Middleware
 {
-    /// <summary>
-    /// Middleware for resolving and setting the tenant schema based on the incoming request.
-    /// </summary>
     public class TenantMiddleware
     {
-        /// <summary>
-        /// The next middleware in the pipeline.
-        /// </summary>
         private readonly RequestDelegate _next;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="TenantMiddleware"/> class.
-        /// </summary>
-        /// <param name="next">The next middleware in the pipeline.</param>
+        // These paths always use the public schema — they deal with users/auth
+        // which are global, not per-tenant.
+        private static readonly string[] _publicSchemaPaths = new[]
+        {
+            "/api/v1/user/login",
+            "/api/v1/user/refresh-token",
+            "/api/v1/user/forgot-password",
+            "/api/v1/user/reset-password",
+            "/api/v1/user/create-user",
+            "/api/v1/user/get-all-users",
+            "/api/v1/user/get-user-by-email",
+            "/api/v1/activation",
+            "/api/v1/subscription",
+            "/healthz",
+            "/swagger",
+        };
+
         public TenantMiddleware(RequestDelegate next) => _next = next;
 
-        /// <summary>
-        /// Invokes the middleware to resolve the tenant and set the schema for the request.
-        /// </summary>
-        /// <param name="context">The HTTP context.</param>
-        /// <param name="tenantProvider">The tenant provider to set the schema.</param>
-        /// <returns>A task representing the asynchronous operation.</returns>
         public async Task InvokeAsync(HttpContext context, ITenantProvider tenantProvider)
         {
+            var path = context.Request.Path.Value ?? string.Empty;
+
+            // Auth / global paths always hit the public schema.
+            if (_publicSchemaPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+            {
+                tenantProvider.SetSchema("public");
+                await _next(context);
+                return;
+            }
+
             var tenantId = context.Request.Headers["X-Tenant-Id"].ToString();
 
-            // Missing header falls back to public schema.
+            // No header → public schema fallback.
             if (string.IsNullOrWhiteSpace(tenantId))
             {
                 tenantProvider.SetSchema("public");
@@ -37,7 +48,7 @@ namespace hotelier_core_app.API.Middleware
                 return;
             }
 
-            // Accept only positive numeric tenant IDs and normalize formatting.
+            // Accept only positive numeric tenant IDs.
             if (!long.TryParse(tenantId, NumberStyles.None, CultureInfo.InvariantCulture, out var normalizedTenantId) || normalizedTenantId <= 0)
             {
                 context.Response.StatusCode = StatusCodes.Status400BadRequest;
@@ -45,8 +56,7 @@ namespace hotelier_core_app.API.Middleware
                 return;
             }
 
-            var schema = $"tenant_{normalizedTenantId}";
-            tenantProvider.SetSchema(schema);
+            tenantProvider.SetSchema($"tenant_{normalizedTenantId}");
             await _next(context);
         }
     }

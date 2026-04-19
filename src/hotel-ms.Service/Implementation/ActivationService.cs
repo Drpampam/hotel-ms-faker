@@ -157,7 +157,9 @@ namespace hotelier_core_app.Service.Implementation
                 }
             }
 
-            // 5 — Create SuperAdmin user
+            // 5 — Create SuperAdmin user in public schema
+            // All users live in public so login can always find them regardless of X-Tenant-Id.
+            _tenantProvider.SetSchema("public");
             var adminUser = new ApplicationUser
             {
                 UserName = request.Email,

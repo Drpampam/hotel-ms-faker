@@ -134,8 +134,9 @@ namespace hotelier_core_app.API.Controllers
                     response.Data?.Email ?? string.Empty,
                     response.Data?.Roles ?? Enumerable.Empty<string>().ToList()));
                 Response.Headers.TryAdd("TokenExpiry", _jwtConfig.Value.TokenExpiryPeriod);
-                Response.Headers.TryAdd("Access-Control-Expose-Headers", "Token,TokenExpiry,RefreshToken");
                 Response.Headers.TryAdd("RefreshToken", refreshToken);
+                Response.Headers.TryAdd("X-Tenant-Id", response.Data?.TenantId?.ToString() ?? "1");
+                Response.Headers.TryAdd("Access-Control-Expose-Headers", "Token,TokenExpiry,RefreshToken,X-Tenant-Id");
             }
             return Ok(response);
         }

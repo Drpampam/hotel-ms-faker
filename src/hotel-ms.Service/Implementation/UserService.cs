@@ -325,7 +325,8 @@ namespace hotelier_core_app.Service.Implementation
                 Email = user.Email ?? string.Empty,
                 FullName = user.FullName,
                 Picture = user.Picture ?? string.Empty,
-                Roles = userRole.ToList()
+                Roles = userRole.ToList(),
+                TenantId = user.TenantId
             };
 
             string refreshToken = await GenerateRefreshTokenAndPersistData(user, auditLog);

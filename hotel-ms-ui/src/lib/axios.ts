@@ -84,7 +84,14 @@ api.interceptors.request.use(
     if (!token) token = localStorage.getItem('hotel_ms_token');
 
     if (token) config.headers.Authorization = `Bearer ${token}`;
-    if (tenantId && tenantId > 0) config.headers['X-Tenant-Id'] = String(tenantId);
+
+    // Auth and activation routes always use public schema — never send tenant header.
+    const url = config.url ?? '';
+    const isPublicRoute = ['/login', '/forgot-password', '/reset-password', '/refresh-token', '/activation']
+      .some((p) => url.includes(p));
+    if (tenantId && tenantId > 0 && !isPublicRoute) {
+      config.headers['X-Tenant-Id'] = String(tenantId);
+    }
     return config;
   },
   (error) => Promise.reject(error)

@@ -58,7 +58,7 @@ namespace hotelier_core_app.API.Controllers
                 IpAddress = _accessor?.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",
                 PerformerEmail = _tokenService.GetUserEmail(Request),
                 PerformedAgainst = "Module Group",
-                //MacAddress = _tokenService.GetMacAddress(Request)
+                MacAddress = _tokenService.GetMacAddress(Request)
             };
             BaseResponse response = await _moduleService.CreateModuleGroup(model, auditLog);
             return Ok(response);

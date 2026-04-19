@@ -84,8 +84,11 @@ namespace hotelier_core_app.API.Controllers
             {
                 Action = UserAction.CreateUser,
                 DatePerformed = DateTime.UtcNow,
+                PerformedBy = _tokenHelper.GetUserFullName(Request),
+                PerformerEmail = _tokenHelper.GetUserEmail(Request),
                 IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",
-                PerformedAgainst = model.Email
+                PerformedAgainst = model.Email,
+                MacAddress = _tokenHelper.GetMacAddress(Request)
             };
             BaseResponse response = await _userService.CreateUser(model, auditLog);
             return Ok(response);
@@ -124,7 +127,10 @@ namespace hotelier_core_app.API.Controllers
                 Action = UserAction.UserLogin,
                 DatePerformed = DateTime.UtcNow,
                 PerformedBy = model.Email,
-                IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP"
+                PerformerEmail = model.Email,
+                PerformedAgainst = model.Email,
+                IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",
+                MacAddress = _tokenHelper.GetMacAddress(Request)
             };
             var (response, refreshToken) = await _userService.Login(model, auditLog);
             if (response.Status)
@@ -154,7 +160,10 @@ namespace hotelier_core_app.API.Controllers
             {
                 Action = UserAction.RefreshToken,
                 DatePerformed = DateTime.UtcNow,
-                IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP"
+                PerformedBy = _tokenHelper.GetUserFullName(Request),
+                PerformerEmail = _tokenHelper.GetUserEmail(Request),
+                IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",
+                MacAddress = _tokenHelper.GetMacAddress(Request)
             };
             var (response, refreshToken) = await _userService.RefreshToken(model, auditLog);
             if (response.Status)

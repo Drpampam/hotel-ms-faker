@@ -90,5 +90,10 @@
 
         // Loyalty
         public const string RedeemLoyaltyPoints = "Redeem Loyalty Points";
+
+        // Activation
+        public const string GenerateActivationCode = "Generate Activation Code";
+        public const string ActivateTenant = "Activate Tenant";
+        public const string RenewSubscription = "Renew Subscription";
     }
 }

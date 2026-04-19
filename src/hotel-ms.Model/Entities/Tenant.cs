@@ -1,4 +1,5 @@
-﻿using hotelier_core_app.Model.Attributes;
+﻿using hotelier_core_app.Core.Enums;
+using hotelier_core_app.Model.Attributes;
 using hotelier_core_app.Model.Interfaces;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -75,6 +76,8 @@ namespace hotelier_core_app.Model.Entities
         /// Gets or sets a value indicating whether the tenant is deleted.
         /// </summary>
         public bool IsDeleted { get; set; }
+
+        public PlanType? PlanType { get; set; }
 
         [ForeignKey("SubscriptionPlan")]
         /// <summary>

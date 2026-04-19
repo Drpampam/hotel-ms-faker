@@ -34,7 +34,8 @@ using System.Threading.RateLimiting;
 var builder = WebApplication.CreateBuilder(args);
 
 // Support Render.com (and other PaaS) PORT environment variable
-var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+var port = Environment.GetEnvironmentVariable("PORT") ??
+    (builder.Environment.IsDevelopment() ? "5227" : "8080");
 builder.WebHost.UseUrls($"http://+:{port}");
 
 /// <summary>
@@ -243,6 +244,7 @@ app.UseRequestLocalization(new RequestLocalizationOptions
 
 // Use TenantMiddleware before authentication/authorization
 app.UseTenantMiddleware();
+app.UseMiddleware<hotelier_core_app.API.Middleware.LicenseEnforcementMiddleware>();
 app.UseHttpsRedirection();
 app.UseRouting();
 app.UseAuthentication();

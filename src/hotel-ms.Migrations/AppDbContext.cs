@@ -12,6 +12,7 @@ namespace hotelier_core_app.Migrations
     {
         private ITenantProvider _tenantProvider;
 
+        public DbSet<ActivationCode> ActivationCodes { get; set; }
         public DbSet<Address> Addresses { get; set; }
         public DbSet<GuestProfile> GuestProfiles { get; set; }
         public DbSet<HousekeepingTask> HousekeepingTasks { get; set; }

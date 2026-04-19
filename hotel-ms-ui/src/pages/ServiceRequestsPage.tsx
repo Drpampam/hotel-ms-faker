@@ -11,9 +11,9 @@ import { reservationService } from '../services/reservation.service';
 import type { ServiceRequest, ServiceRequestState, Reservation } from '../types';
 import { formatDate } from '../lib/utils';
 
-const STATE_VARIANT: Record<ServiceRequestState, 'warning' | 'default' | 'success' | 'danger'> = {
+const STATE_VARIANT: Record<ServiceRequestState, 'warning' | 'secondary' | 'success' | 'danger'> = {
   Pending: 'warning',
-  InProgress: 'default',
+  InProgress: 'secondary',
   Completed: 'success',
   Cancelled: 'danger',
 };
@@ -67,7 +67,8 @@ export function ServiceRequestsPage() {
     if (isGuestRole && guestReservations.length === 0) {
       try {
         const res = await reservationService.getAll({});
-        setGuestReservations(res.data.filter((r) => ['Confirmed', 'CheckedIn'].includes(r.status)));
+        const list = Array.isArray(res) ? res : (res as { data?: typeof res }).data ?? [];
+        setGuestReservations(list.filter((r: { status: string }) => ['Confirmed', 'CheckedIn'].includes(r.status)));
       } catch {
         // non-fatal — guest can still type their reservation ID
       }
@@ -150,7 +151,7 @@ export function ServiceRequestsPage() {
       key: 'state',
       header: 'Status',
       render: (r: ServiceRequest) => (
-        <Badge variant={STATE_VARIANT[r.state] ?? 'default'} dot>
+        <Badge variant={STATE_VARIANT[r.state] ?? 'secondary'} dot>
           {r.state}
         </Badge>
       ),
@@ -173,9 +174,9 @@ export function ServiceRequestsPage() {
 
   const getNextActions = (state: ServiceRequestState) => {
     switch (state) {
-      case 'Pending': return [{ label: 'Start', trigger: 'Start', variant: 'default' as const }];
+      case 'Pending': return [{ label: 'Start', trigger: 'Start', variant: 'primary' as const }];
       case 'InProgress': return [
-        { label: 'Complete', trigger: 'Complete', variant: 'default' as const },
+        { label: 'Complete', trigger: 'Complete', variant: 'primary' as const },
         { label: 'Cancel', trigger: 'Cancel', variant: 'outline' as const },
       ];
       default: return [];
@@ -270,7 +271,7 @@ export function ServiceRequestsPage() {
         {viewRequest && (
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <Badge variant={STATE_VARIANT[viewRequest.state] ?? 'default'} dot>{viewRequest.state}</Badge>
+              <Badge variant={STATE_VARIANT[viewRequest.state] ?? 'secondary'} dot>{viewRequest.state}</Badge>
             </div>
 
             <div className="grid grid-cols-2 gap-4 text-sm">

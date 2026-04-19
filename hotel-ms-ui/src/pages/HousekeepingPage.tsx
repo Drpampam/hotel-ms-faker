@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Clock, CheckCircle, AlertCircle, Loader2, BedDouble, User, RefreshCw, SkipForward } from 'lucide-react';
+import { Plus, Clock, CheckCircle, AlertCircle, Loader2, BedDouble, User as UserIcon, RefreshCw, SkipForward } from 'lucide-react';
 import { Card, CardHeader, CardTitle } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -87,7 +87,7 @@ function TaskCard({ task, onMove }: TaskCardProps) {
 
         {task.assignedToName && (
           <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-2">
-            <User className="h-3.5 w-3.5" />
+            <UserIcon className="h-3.5 w-3.5" />
             <span>{task.assignedToName}</span>
           </div>
         )}

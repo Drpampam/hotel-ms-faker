@@ -45,6 +45,22 @@ namespace hotelier_core_app.Migrations
             await context.Database.ExecuteSqlRawAsync(@"
                 ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Shift""      varchar(50);
                 ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Department"" varchar(100);
+
+                CREATE TABLE IF NOT EXISTS ""ActivationCode"" (
+                    ""Id""             bigserial PRIMARY KEY,
+                    ""CodeHash""       varchar(64)  NOT NULL,
+                    ""PlanType""       integer      NOT NULL,
+                    ""BoundToEmail""   varchar(200) NOT NULL,
+                    ""IsUsed""         boolean      NOT NULL DEFAULT false,
+                    ""UsedByTenantId"" bigint,
+                    ""UsedAt""         timestamptz,
+                    ""GeneratedAt""    timestamptz  NOT NULL DEFAULT now(),
+                    ""GeneratedBy""    varchar(200) NOT NULL DEFAULT 'System'
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_ActivationCode_CodeHash""
+                    ON ""ActivationCode"" (""CodeHash"");
+
+                ALTER TABLE ""Tenant"" ADD COLUMN IF NOT EXISTS ""PlanType"" integer;
             ");
 
             // ── Permissions ──────────────────────────────────────────────────────

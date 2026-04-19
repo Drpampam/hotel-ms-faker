@@ -162,5 +162,13 @@
 
         // Reporting
         public const string ReportGenerated = "Report generated successfully";
+
+        // Activation
+        public const string ActivationCodeGenerated = "Activation code generated successfully";
+        public const string ActivationCodeInvalid = "Activation code is invalid or has already been used";
+        public const string ActivationCodeEmailMismatch = "Activation code is not bound to this email address";
+        public const string TenantActivated = "Tenant activated successfully";
+        public const string SubscriptionExpired = "Your subscription has expired. Please renew to continue.";
+        public const string SubscriptionStatusRetrieved = "Subscription status retrieved successfully";
     }
 }

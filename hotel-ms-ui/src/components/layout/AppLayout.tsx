@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { SubscriptionBanner } from './SubscriptionBanner';
 import { useSidebarStore } from '../../lib/store';
 import { cn } from '../../lib/utils';
 
@@ -17,6 +18,7 @@ export function AppLayout() {
           isCollapsed && 'lg:pl-[68px]'
         )}
       >
+        <SubscriptionBanner />
         <Header />
         <main className="flex-1 overflow-x-hidden">
           <Outlet />

@@ -66,15 +66,17 @@ async function attemptRefresh(): Promise<string> {
   return newToken;
 }
 
-// Request interceptor — attach token
+// Request interceptor — attach token + tenant
 api.interceptors.request.use(
   (config) => {
     let token: string | null = null;
+    let tenantId: number | null = null;
     try {
       const stored = localStorage.getItem('hotel-ms-auth');
       if (stored) {
-        const parsed = JSON.parse(stored) as { state?: { token?: string } };
+        const parsed = JSON.parse(stored) as { state?: { token?: string; tenantId?: number } };
         token = parsed?.state?.token ?? null;
+        tenantId = parsed?.state?.tenantId ?? null;
       }
     } catch {
       // ignore parse errors
@@ -82,6 +84,7 @@ api.interceptors.request.use(
     if (!token) token = localStorage.getItem('hotel_ms_token');
 
     if (token) config.headers.Authorization = `Bearer ${token}`;
+    if (tenantId && tenantId > 0) config.headers['X-Tenant-Id'] = String(tenantId);
     return config;
   },
   (error) => Promise.reject(error)

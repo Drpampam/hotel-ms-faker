@@ -25,5 +25,6 @@
         /// </summary>
         public List<string>? Roles { get; set; }
         public long? TenantId { get; set; }
+        public bool MustChangePassword { get; set; }
     }
 }

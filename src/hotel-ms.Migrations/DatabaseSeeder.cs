@@ -43,8 +43,9 @@ namespace hotelier_core_app.Migrations
             // Idempotent schema guards — run every startup so columns added by migrations that
             // were stamped-but-not-applied (due to 42P07 recovery) are always present.
             await context.Database.ExecuteSqlRawAsync(@"
-                ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Shift""      varchar(50);
-                ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Department"" varchar(100);
+                ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Shift""             varchar(50);
+                ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Department""         varchar(100);
+                ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""MustChangePassword"" boolean NOT NULL DEFAULT false;
 
                 CREATE TABLE IF NOT EXISTS ""ActivationCode"" (
                     ""Id""             bigserial PRIMARY KEY,

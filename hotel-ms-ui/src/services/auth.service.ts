@@ -21,10 +21,9 @@ export const authService = {
       throw new Error(response.data?.message ?? 'Login failed: no token received');
     }
 
-    const data = response.data?.data as (typeof response.data.data & { tenantId?: number }) | undefined;
-    // TenantId comes from response body or the X-Tenant-Id header set by the server.
+    const data = response.data?.data;
     const tenantIdHeader = response.headers['x-tenant-id'];
-    const tenantId = data?.tenantId ?? (tenantIdHeader ? Number(tenantIdHeader) : 1);
+    const tenantId = data?.tenantId ?? (tenantIdHeader ? Number(tenantIdHeader) : 0);
 
     const user: AuthUser = {
       email: data?.email ?? credentials.email,
@@ -32,6 +31,7 @@ export const authService = {
       roles: data?.roles ?? [],
       tenantId,
       picture: data?.picture,
+      mustChangePassword: data?.mustChangePassword ?? false,
     };
 
     localStorage.setItem('hotel_ms_refresh_token', refreshToken ?? '');
@@ -97,6 +97,17 @@ export const authService = {
     return {
       success: response.data?.status ?? false,
       message: response.data?.message ?? 'Password reset.',
+    };
+  },
+
+  async changeTempPassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    const response = await api.post<{ status: boolean; message?: string }>(
+      '/api/v1/User/change-temp-password',
+      { currentPassword, newPassword }
+    );
+    return {
+      success: response.data?.status ?? false,
+      message: response.data?.message ?? 'Password changed.',
     };
   },
 

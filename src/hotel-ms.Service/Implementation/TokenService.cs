@@ -60,7 +60,8 @@ namespace hotelier_core_app.Service.Implementation
         /// <param name="email">The user's email address.</param>
         /// <param name="userRoles">A list of user roles.</param>
         /// <returns>The generated JWT token as a string.</returns>
-        public string GenerateJSONWebToken(string fullName, string email, List<string> userRoles)
+        public string GenerateJSONWebToken(string fullName, string email, List<string> userRoles,
+            long? tenantId = null, bool mustChangePassword = false)
         {
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtConfig.Value.TokenKey));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
@@ -71,9 +72,13 @@ namespace hotelier_core_app.Service.Implementation
             };
 
             foreach (var role in userRoles)
-            {
                 claims.Add(new Claim(ClaimTypes.Role, role));
-            }
+
+            if (tenantId.HasValue)
+                claims.Add(new Claim("tenantId", tenantId.Value.ToString()));
+
+            if (mustChangePassword)
+                claims.Add(new Claim("mustChangePassword", "true"));
 
             var token = new JwtSecurityToken(_jwtConfig.Value.TokenIssuer,
                 _jwtConfig.Value.TokenIssuer,

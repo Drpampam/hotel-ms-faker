@@ -17,8 +17,13 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Authenticated but tenant not yet provisioned — go to workspace setup
-  const needsSetup = hasAccess && user != null && (!tenantId || tenantId <= 0);
+  // Must change password before accessing anything
+  if (user?.mustChangePassword && location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />;
+  }
+
+  // Self-registered users with no tenant yet go to workspace setup
+  const needsSetup = hasAccess && user != null && !user.mustChangePassword && (!tenantId || tenantId <= 0);
   if (needsSetup && location.pathname !== '/setup') {
     return <Navigate to="/setup" replace />;
   }

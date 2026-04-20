@@ -10,4 +10,13 @@ namespace hotelier_core_app.Model.DTOs.Request
         [Required][MinLength(6)]
         public string NewPassword { get; set; } = string.Empty;
     }
+
+    public class ChangeTempPasswordRequestDTO
+    {
+        [Required]
+        public string CurrentPassword { get; set; } = string.Empty;
+
+        [Required][MinLength(8)]
+        public string NewPassword { get; set; } = string.Empty;
+    }
 }

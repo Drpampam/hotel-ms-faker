@@ -137,8 +137,9 @@ namespace hotelier_core_app.Service.Implementation
 
             // 3 — Seed idempotent schema guards
             await _context.Database.ExecuteSqlRawAsync(@"
-                ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Shift""      varchar(50);
-                ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Department"" varchar(100);
+                ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Shift""             varchar(50);
+                ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Department""         varchar(100);
+                ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""MustChangePassword"" boolean NOT NULL DEFAULT false;
             ");
 
             // 4 — Seed roles in tenant schema
@@ -339,6 +340,62 @@ namespace hotelier_core_app.Service.Implementation
             var fullName = string.IsNullOrWhiteSpace(request.FullName) ? request.Email : request.FullName;
             var tempPassword = GenerateTempPassword();
 
+            // 1 — Create tenant with 30-day trial in public schema
+            var (trialStart, trialEnd) = PlanDates(PlanType.Trial);
+            var tenantName = fullName; // use full name as hotel name placeholder; tenant can update later
+            var tenant = new Tenant
+            {
+                Name = tenantName,
+                PlanType = PlanType.Trial,
+                SubscriptionStartDate = trialStart,
+                SubscriptionEndDate = trialEnd,
+                CreatedBy = "Admin-Provision",
+                CreationDate = DateTime.UtcNow
+            };
+            _context.Tenants.Add(tenant);
+            await _context.SaveChangesAsync();
+
+            // 2 — Provision tenant schema
+            var schema = $"tenant_{tenant.Id}";
+            _tenantProvider.SetSchema(schema);
+            try
+            {
+                await _context.Database.MigrateAsync();
+            }
+            catch (Exception ex) when (ex.GetBaseException().Message.Contains("already exists"))
+            {
+                _logger.LogWarning("Schema {Schema} already exists — stamping pending migrations.", schema);
+                foreach (var mig in _context.Database.GetPendingMigrations())
+                {
+                    await _context.Database.ExecuteSqlRawAsync(
+                        "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ({0}, {1}) ON CONFLICT DO NOTHING",
+                        mig, "8.0.0");
+                }
+            }
+            await _context.Database.ExecuteSqlRawAsync(@"
+                ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Shift""             varchar(50);
+                ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Department""         varchar(100);
+                ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""MustChangePassword"" boolean NOT NULL DEFAULT false;
+            ");
+
+            // 3 — Seed roles in tenant schema
+            var roleNames = new[] { "SuperAdmin", "Admin", "FrontDesk", "Housekeeping", "Guest", "Developer" };
+            foreach (var roleName in roleNames)
+            {
+                if (!await _roleManager.RoleExistsAsync(roleName))
+                {
+                    await _roleManager.CreateAsync(new ApplicationRole
+                    {
+                        Name = roleName,
+                        TenantId = tenant.Id,
+                        CreationDate = DateTime.UtcNow,
+                        CreatedBy = "Admin-Provision"
+                    });
+                }
+            }
+
+            // 4 — Create user in public schema with TenantId already set, MustChangePassword = true
+            _tenantProvider.SetSchema("public");
             var user = new ApplicationUser
             {
                 UserName = request.Email,
@@ -348,7 +405,8 @@ namespace hotelier_core_app.Service.Implementation
                 PhoneNumberConfirmed = true,
                 IsActive = true,
                 Status = "Active",
-                TenantId = null,
+                TenantId = tenant.Id,
+                MustChangePassword = true,
                 CreatedBy = "Admin-Provision",
                 CreationDate = DateTime.UtcNow
             };
@@ -359,14 +417,25 @@ namespace hotelier_core_app.Service.Implementation
                 return BaseResponse<ProvisionTenantResponseDTO>.Failure(null, errors);
             }
 
-            // Generate activation code
+            // 5 — Assign SuperAdmin role
+            var superAdminRole = await _roleManager.FindByNameAsync("SuperAdmin");
+            if (superAdminRole != null)
+            {
+                _context.UserRoles.Add(new ApplicationUserRole
+                {
+                    UserId = user.Id,
+                    RoleId = superAdminRole.Id,
+                    TenantId = tenant.Id
+                });
+                await _context.SaveChangesAsync();
+            }
+
+            // 6 — Generate activation code for the paid plan (for later upgrade from trial)
             var plaintext = GeneratePlaintextCode();
             var hash = HashCode(plaintext);
-
             var prev = await _context.ActivationCodes
                 .FirstOrDefaultAsync(c => c.BoundToEmail == request.Email.ToLower() && !c.IsUsed);
             if (prev != null) { prev.IsUsed = true; _context.ActivationCodes.Update(prev); }
-
             _context.ActivationCodes.Add(new ActivationCode
             {
                 CodeHash = hash,
@@ -379,7 +448,7 @@ namespace hotelier_core_app.Service.Implementation
 
             await _auditLogRepository.AddAsync(new AuditLog
             {
-                Action = UserAction.GenerateActivationCode,
+                Action = UserAction.ActivateTenant,
                 DatePerformed = DateTime.UtcNow,
                 PerformedBy = "Admin",
                 PerformerEmail = "admin",
@@ -546,8 +615,9 @@ namespace hotelier_core_app.Service.Implementation
             }
 
             await _context.Database.ExecuteSqlRawAsync(@"
-                ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Shift""      varchar(50);
-                ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Department"" varchar(100);
+                ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Shift""             varchar(50);
+                ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Department""         varchar(100);
+                ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""MustChangePassword"" boolean NOT NULL DEFAULT false;
             ");
 
             // 3 — Seed roles in tenant schema

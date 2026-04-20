@@ -16,12 +16,15 @@ export function useAuth() {
         const { token: authToken, refreshToken, user: authUser } = await authService.login(credentials);
 
         setAuth(authUser, authToken);
-        // Store refresh token separately
         if (refreshToken) {
           localStorage.setItem('hotel_ms_refresh_token', refreshToken);
         }
         toast.success('Welcome back!', `Signed in as ${authUser.email}`);
-        navigate('/dashboard');
+        if (authUser.mustChangePassword) {
+          navigate('/change-password');
+        } else {
+          navigate('/dashboard');
+        }
         return { success: true };
       } catch (error: unknown) {
         setLoading(false);

@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, type ComponentType } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
 import { ProtectedRoute, RoleRoute } from './components/layout/ProtectedRoute';
@@ -6,11 +6,12 @@ import { PageLoader } from './components/ui/Spinner';
 import { ToastNotifications } from './components/ui/ToastNotifications';
 import { useAuthStore } from './lib/store';
 
-// Eager load login since it's the entry point
+// Eager load auth pages since they're the entry point
 import { LoginPage } from './pages/auth/LoginPage';
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
 import { ActivatePage } from './pages/auth/ActivatePage';
 import { SetupWorkspacePage } from './pages/auth/SetupWorkspacePage';
+import ChangePasswordPage from './pages/auth/ChangePasswordPage';
 
 // Lazy load all protected pages for better performance
 const DashboardPage    = lazy(() => import('./pages/DashboardPage'));
@@ -27,6 +28,7 @@ const DiscountsPage    = lazy(() => import('./pages/DiscountsPage'));
 const ServiceRequestsPage = lazy(() => import('./pages/ServiceRequestsPage'));
 const AuditLogsPage    = lazy(() => import('./pages/AuditLogsPage'));
 const TenantsPage      = lazy(() => import('./pages/TenantsPage'));
+const SubscriptionPage = lazy(() => import('./pages/SubscriptionPage') as Promise<{ default: ComponentType }>);
 
 // Role constants — single source of truth
 const DEV_ROLES     = ['Developer'];
@@ -55,7 +57,17 @@ function App() {
         <Route path="/activate"       element={<ActivatePage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-        {/* Authenticated-but-unactivated workspace setup */}
+        {/* First-login password change (provisioned tenants) */}
+        <Route
+          path="/change-password"
+          element={
+            <ProtectedRoute>
+              <ChangePasswordPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Authenticated-but-unactivated workspace setup (self-register flow) */}
         <Route
           path="/setup"
           element={
@@ -219,6 +231,16 @@ function App() {
               <RoleRoute allowedRoles={DEV_ROLES}>
                 <Suspense fallback={<PageLoader />}>
                   <TenantsPage />
+                </Suspense>
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/subscription"
+            element={
+              <RoleRoute allowedRoles={['SuperAdmin', 'Admin', 'Developer']}>
+                <Suspense fallback={<PageLoader />}>
+                  <SubscriptionPage />
                 </Suspense>
               </RoleRoute>
             }

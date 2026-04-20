@@ -19,6 +19,7 @@ import {
   Headphones,
   ClipboardList,
   Building,
+  CreditCard,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useSidebarStore } from '../../lib/store';
@@ -46,6 +47,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { label: 'Reports',          path: '/reports',          icon: BarChart3,       roles: ['SuperAdmin', 'Admin', 'Developer'] },
   { label: 'Audit Logs',       path: '/audit-logs',       icon: ClipboardList,   roles: ['SuperAdmin', 'Admin', 'Developer'] },
   { label: 'Settings',         path: '/settings',         icon: Settings,        roles: ['SuperAdmin', 'Admin', 'Developer'] },
+  { label: 'Subscription',     path: '/subscription',     icon: CreditCard,      roles: ['SuperAdmin', 'Admin', 'Developer'] },
   { label: 'Tenants',          path: '/tenants',           icon: Building,        roles: ['Developer'] },
 ];
 

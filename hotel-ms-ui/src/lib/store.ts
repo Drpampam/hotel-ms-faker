@@ -11,7 +11,7 @@ interface AuthStore {
   isAuthenticated: boolean;
   isLoading: boolean;
   setAuth: (user: AuthUser | null, token: string) => void;
-  setUser: (user: AuthUser) => void;
+  setUser: (user: AuthUser | Partial<AuthUser>) => void;
   setLoading: (loading: boolean) => void;
   logout: () => void;
 }

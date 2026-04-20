@@ -138,10 +138,12 @@ namespace hotelier_core_app.API.Controllers
                 Response.Headers.TryAdd("Token", _tokenHelper.GenerateJSONWebToken(
                     response.Data?.FullName ?? string.Empty,
                     response.Data?.Email ?? string.Empty,
-                    response.Data?.Roles ?? Enumerable.Empty<string>().ToList()));
+                    response.Data?.Roles ?? Enumerable.Empty<string>().ToList(),
+                    response.Data?.TenantId,
+                    response.Data?.MustChangePassword ?? false));
                 Response.Headers.TryAdd("TokenExpiry", _jwtConfig.Value.TokenExpiryPeriod);
                 Response.Headers.TryAdd("RefreshToken", refreshToken);
-                Response.Headers.TryAdd("X-Tenant-Id", response.Data?.TenantId?.ToString() ?? "1");
+                Response.Headers.TryAdd("X-Tenant-Id", response.Data?.TenantId?.ToString() ?? "");
                 Response.Headers.TryAdd("Access-Control-Expose-Headers", "Token,TokenExpiry,RefreshToken,X-Tenant-Id");
             }
             return Ok(response);
@@ -180,6 +182,17 @@ namespace hotelier_core_app.API.Controllers
         }
         
         
+        [Authorize]
+        [HttpPost("change-temp-password")]
+        [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse))]
+        public async Task<IActionResult> ChangeTempPassword([FromBody] ChangeTempPasswordRequestDTO model)
+        {
+            var callerEmail = _tokenHelper.GetUserEmail(Request);
+            if (string.IsNullOrWhiteSpace(callerEmail)) return Unauthorized();
+            var result = await _userService.ChangeTempPasswordAsync(callerEmail, model.CurrentPassword, model.NewPassword);
+            return result.Status ? Ok(result) : BadRequest(result);
+        }
+
         [HttpPut("update-user")]
         [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse))]
         [ProducesResponseType((int)HttpStatusCode.BadRequest, Type = typeof(ValidationResultModel))]

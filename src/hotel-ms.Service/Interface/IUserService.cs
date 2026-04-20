@@ -31,6 +31,7 @@ namespace hotelier_core_app.Service.Interface
         Task<BaseResponse> ForgotPasswordAsync(string email);
         Task<BaseResponse> ResetPasswordAsync(string email, string token, string newPassword);
         Task<BaseResponse> AdminChangePasswordAsync(AdminChangePasswordRequestDTO model, AuditLog auditLog);
+        Task<BaseResponse> ChangeTempPasswordAsync(string callerEmail, string currentPassword, string newPassword);
         Task<BaseResponse> DeleteUserAsync(DeleteUserRequestDTO model, AuditLog auditLog);
         Task<BaseResponse> ChangeUserShiftAsync(ChangeUserShiftRequestDTO model, AuditLog auditLog);
     }

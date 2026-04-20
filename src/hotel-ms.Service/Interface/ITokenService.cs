@@ -11,7 +11,8 @@ namespace hotelier_core_app.Service.Interface
 
         List<string> GetUserRoles(HttpRequest Request);
 
-        string GenerateJSONWebToken(string fullname, string email, List<string> userRoles);
+        string GenerateJSONWebToken(string fullname, string email, List<string> userRoles,
+            long? tenantId = null, bool mustChangePassword = false);
 
         JwtSecurityToken GetClaims(string token);
 

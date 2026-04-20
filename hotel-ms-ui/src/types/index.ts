@@ -11,6 +11,8 @@ export interface LoginResponseData {
   fullName?: string;
   picture?: string;
   roles?: string[];
+  tenantId?: number;
+  mustChangePassword?: boolean;
 }
 
 // The backend BaseResponse<LoginResponseDTO>
@@ -27,6 +29,7 @@ export interface AuthUser {
   roles: string[];
   tenantId: number;
   picture?: string;
+  mustChangePassword?: boolean;
 }
 
 // Legacy alias kept so existing page code compiles

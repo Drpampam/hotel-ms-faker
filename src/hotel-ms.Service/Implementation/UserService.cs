@@ -326,7 +326,8 @@ namespace hotelier_core_app.Service.Implementation
                 FullName = user.FullName,
                 Picture = user.Picture ?? string.Empty,
                 Roles = userRole.ToList(),
-                TenantId = user.TenantId
+                TenantId = user.TenantId,
+                MustChangePassword = user.MustChangePassword
             };
 
             string refreshToken = await GenerateRefreshTokenAndPersistData(user, auditLog);
@@ -603,6 +604,24 @@ namespace hotelier_core_app.Service.Implementation
             _auditLogCommandRepository.Add(auditLog);
 
             return BaseResponse.Success("Password updated successfully.", ResponseStatusCode.OperationSuccessful);
+        }
+
+        public async Task<BaseResponse> ChangeTempPasswordAsync(string callerEmail, string currentPassword, string newPassword)
+        {
+            var user = await _userManager.FindByEmailAsync(callerEmail);
+            if (user == null)
+                return BaseResponse.Failure("User not found.", ResponseStatusCode.UserDoesNotExist);
+
+            var result = await _userManager.ChangePasswordAsync(user, currentPassword, newPassword);
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                return BaseResponse.Failure(errors, ResponseStatusCode.OperationFailed);
+            }
+
+            user.MustChangePassword = false;
+            await _userManager.UpdateAsync(user);
+            return BaseResponse.Success("Password changed successfully. You can now access your workspace.", ResponseStatusCode.OperationSuccessful);
         }
 
         public async Task<BaseResponse> DeleteUserAsync(DeleteUserRequestDTO model, AuditLog auditLog)

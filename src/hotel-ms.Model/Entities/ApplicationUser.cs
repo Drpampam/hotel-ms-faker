@@ -99,6 +99,8 @@ namespace hotelier_core_app.Model.Entities
         [StringLength(100)]
         public string? Department { get; set; }
 
+        public bool MustChangePassword { get; set; }
+
         public ICollection<ApplicationUserPolicyGroup> UserPolicyGroups { get; set; } = new List<ApplicationUserPolicyGroup>();
 
         public ApplicationUser()

@@ -296,6 +296,77 @@ namespace hotelier_core_app.Service.Implementation
             return BaseResponse.Success($"Subscription renewed to {PlanLabel(activationCode.PlanType)} plan successfully.");
         }
 
+        public async Task<BaseResponse<ProvisionTenantResponseDTO>> ProvisionTenantAsync(ProvisionTenantRequestDTO request, string ipAddress)
+        {
+            _tenantProvider.SetSchema("public");
+
+            var existing = await _userManager.FindByEmailAsync(request.Email);
+            if (existing != null)
+                return BaseResponse<ProvisionTenantResponseDTO>.Failure(null, "An account with this email already exists.");
+
+            var fullName = string.IsNullOrWhiteSpace(request.FullName) ? request.Email : request.FullName;
+            var tempPassword = GenerateTempPassword();
+
+            var user = new ApplicationUser
+            {
+                UserName = request.Email,
+                Email = request.Email,
+                FullName = fullName,
+                EmailConfirmed = true,
+                PhoneNumberConfirmed = true,
+                IsActive = true,
+                Status = "Active",
+                TenantId = null,
+                CreatedBy = "Admin-Provision",
+                CreationDate = DateTime.UtcNow
+            };
+            var createResult = await _userManager.CreateAsync(user, tempPassword);
+            if (!createResult.Succeeded)
+            {
+                var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
+                return BaseResponse<ProvisionTenantResponseDTO>.Failure(null, errors);
+            }
+
+            // Generate activation code
+            var plaintext = GeneratePlaintextCode();
+            var hash = HashCode(plaintext);
+
+            var prev = await _context.ActivationCodes
+                .FirstOrDefaultAsync(c => c.BoundToEmail == request.Email.ToLower() && !c.IsUsed);
+            if (prev != null) { prev.IsUsed = true; _context.ActivationCodes.Update(prev); }
+
+            _context.ActivationCodes.Add(new ActivationCode
+            {
+                CodeHash = hash,
+                PlanType = request.PlanType,
+                BoundToEmail = request.Email.ToLower(),
+                GeneratedAt = DateTime.UtcNow,
+                GeneratedBy = "admin-provision"
+            });
+            await _context.SaveChangesAsync();
+
+            await _auditLogRepository.AddAsync(new AuditLog
+            {
+                Action = UserAction.GenerateActivationCode,
+                DatePerformed = DateTime.UtcNow,
+                PerformedBy = "Admin",
+                PerformerEmail = "admin",
+                PerformedAgainst = request.Email,
+                IpAddress = ipAddress,
+                MacAddress = HashCode(request.Email)[..16]
+            });
+            await _auditLogRepository.SaveAsync();
+
+            return BaseResponse<ProvisionTenantResponseDTO>.Success(new ProvisionTenantResponseDTO
+            {
+                Email = request.Email,
+                TempPassword = tempPassword,
+                ActivationCode = FormatCode(plaintext),
+                PlanLabel = PlanLabel(request.PlanType),
+                FullName = fullName
+            }, "Tenant provisioned. Share the credentials with the client.");
+        }
+
         public async Task<BaseResponse<SelfRegisterResponseDTO>> SelfRegisterAsync(SelfRegisterRequestDTO request, string ipAddress)
         {
             _tenantProvider.SetSchema("public");
@@ -615,6 +686,36 @@ namespace hotelier_core_app.Service.Implementation
         {
             var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
             return Convert.ToHexString(bytes).ToLower();
+        }
+
+        private static string GenerateTempPassword()
+        {
+            const string upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+            const string lower = "abcdefghjkmnpqrstuvwxyz";
+            const string digits = "23456789";
+            const string special = "@#$!";
+            var all = upper + lower + digits + special;
+
+            var bytes = new byte[12];
+            RandomNumberGenerator.Fill(bytes);
+
+            // Guarantee at least one of each required char class
+            var chars = new char[12];
+            chars[0] = upper[bytes[0] % upper.Length];
+            chars[1] = lower[bytes[1] % lower.Length];
+            chars[2] = digits[bytes[2] % digits.Length];
+            chars[3] = special[bytes[3] % special.Length];
+            for (int i = 4; i < 12; i++)
+                chars[i] = all[bytes[i] % all.Length];
+
+            // Shuffle
+            RandomNumberGenerator.Fill(bytes);
+            for (int i = chars.Length - 1; i > 0; i--)
+            {
+                int j = bytes[i % bytes.Length] % (i + 1);
+                (chars[i], chars[j]) = (chars[j], chars[i]);
+            }
+            return new string(chars);
         }
 
         private static string GenerateRefreshToken()

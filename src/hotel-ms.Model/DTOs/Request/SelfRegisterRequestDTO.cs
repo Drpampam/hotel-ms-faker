@@ -28,4 +28,16 @@ namespace hotelier_core_app.Model.DTOs.Request
         [Required]
         public string Code { get; set; } = string.Empty;
     }
+
+    public class ProvisionTenantRequestDTO
+    {
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = string.Empty;
+
+        public string? FullName { get; set; }
+
+        [Required]
+        public PlanType PlanType { get; set; }
+    }
 }

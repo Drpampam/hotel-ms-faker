@@ -43,6 +43,16 @@ public class ActivationController : ControllerBase
         return result.Status ? Ok(result) : BadRequest(result);
     }
 
+    [Authorize(Policy = "DeveloperPolicy")]
+    [HttpPost("provision")]
+    [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<ProvisionTenantResponseDTO>))]
+    public async Task<IActionResult> ProvisionTenant([FromBody] ProvisionTenantRequestDTO request)
+    {
+        var ip = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown";
+        var result = await _activationService.ProvisionTenantAsync(request, ip);
+        return result.Status ? Ok(result) : BadRequest(result);
+    }
+
     [AllowAnonymous]
     [HttpPost("self-register")]
     [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<SelfRegisterResponseDTO>))]

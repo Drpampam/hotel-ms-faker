@@ -33,6 +33,15 @@ namespace hotelier_core_app.Model.DTOs.Response
         public int? DaysRemaining { get; set; }
     }
 
+    public class ProvisionTenantResponseDTO
+    {
+        public string Email { get; set; } = string.Empty;
+        public string TempPassword { get; set; } = string.Empty;
+        public string ActivationCode { get; set; } = string.Empty;
+        public string PlanLabel { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+    }
+
     public class SelfRegisterResponseDTO
     {
         public string PlaintextCode { get; set; } = string.Empty;

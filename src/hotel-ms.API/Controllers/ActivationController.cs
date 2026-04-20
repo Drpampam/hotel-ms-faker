@@ -103,6 +103,16 @@ public class ActivationController : ControllerBase
     }
 
     [Authorize(Policy = "DeveloperPolicy")]
+    [HttpPost("admin-renew/{tenantId}")]
+    [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse))]
+    public async Task<IActionResult> AdminRenewSubscription(long tenantId, [FromBody] AdminRenewRequestDTO request)
+    {
+        var callerEmail = _tokenService.GetUserEmail(Request);
+        var result = await _activationService.AdminRenewSubscriptionAsync(tenantId, request.PlanType, callerEmail);
+        return result.Status ? Ok(result) : BadRequest(result);
+    }
+
+    [Authorize(Policy = "DeveloperPolicy")]
     [HttpGet("tenants")]
     [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<List<TenantSummaryDTO>>))]
     public async Task<IActionResult> GetAllTenants()

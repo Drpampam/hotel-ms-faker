@@ -1,3 +1,4 @@
+using hotelier_core_app.Core.Enums;
 using System.ComponentModel.DataAnnotations;
 
 namespace hotelier_core_app.Model.DTOs.Request
@@ -6,5 +7,11 @@ namespace hotelier_core_app.Model.DTOs.Request
     {
         [Required]
         public string Code { get; set; } = string.Empty;
+    }
+
+    public class AdminRenewRequestDTO
+    {
+        [Required]
+        public PlanType PlanType { get; set; }
     }
 }

@@ -1,3 +1,4 @@
+using hotelier_core_app.Core.Enums;
 using hotelier_core_app.Model.DTOs.Request;
 using hotelier_core_app.Model.DTOs.Response;
 using hotelier_core_app.Model.Entities;
@@ -12,6 +13,7 @@ public interface IActivationService : IAutoDependencyService
     Task<BaseResponse> RenewSubscriptionAsync(long tenantId, string code, string callerEmail, AuditLog auditLog);
     Task<BaseResponse<List<TenantSummaryDTO>>> GetAllTenantsAsync();
     Task<BaseResponse<ProvisionTenantResponseDTO>> ProvisionTenantAsync(ProvisionTenantRequestDTO request, string ipAddress);
+    Task<BaseResponse> AdminRenewSubscriptionAsync(long tenantId, PlanType planType, string callerEmail);
     Task<BaseResponse<SelfRegisterResponseDTO>> SelfRegisterAsync(SelfRegisterRequestDTO request, string ipAddress);
     Task<BaseResponse<ActivateMyAccountResponseDTO>> ActivateMyAccountAsync(string callerEmail, ActivateMyAccountRequestDTO request);
 }

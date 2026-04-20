@@ -62,8 +62,8 @@ const adminService = {
     return res.data.data ?? [];
   },
 
-  async renewSubscription(tenantId: number, code: string): Promise<void> {
-    await api.post(`/api/v1/activation/renew/${tenantId}`, { code });
+  async renewSubscription(tenantId: number, planType: PlanType): Promise<void> {
+    await api.post(`/api/v1/activation/admin-renew/${tenantId}`, { planType });
   },
 };
 

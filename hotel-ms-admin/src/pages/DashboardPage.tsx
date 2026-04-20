@@ -63,7 +63,7 @@ export function DashboardPage() {
 
   // Renew state
   const [renewTarget, setRenewTarget] = useState<TenantSummary | null>(null);
-  const [renewCode, setRenewCode] = useState('');
+  const [renewPlan, setRenewPlan] = useState<PlanKey>('Monthly3');
   const [isRenewing, setIsRenewing] = useState(false);
   const [renewError, setRenewError] = useState('');
 
@@ -105,11 +105,11 @@ export function DashboardPage() {
   };
 
   const handleRenew = async () => {
-    if (!renewTarget || !renewCode.trim()) { setRenewError('Activation code is required.'); return; }
+    if (!renewTarget) return;
     setRenewError('');
     setIsRenewing(true);
     try {
-      await adminService.renewSubscription(renewTarget.id, renewCode.trim());
+      await adminService.renewSubscription(renewTarget.id, renewPlan);
       setRenewTarget(null);
       fetchTenants();
     } catch (err) {
@@ -332,7 +332,7 @@ export function DashboardPage() {
                       <td className="px-4 py-3.5 text-slate-600">{formatDate(t.createdAt)}</td>
                       <td className="px-4 py-3.5">
                         <button
-                          onClick={() => { setRenewTarget(t); setRenewCode(''); setRenewError(''); }}
+                          onClick={() => { setRenewTarget(t); setRenewPlan('Monthly3'); setRenewError(''); }}
                           className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 px-2.5 py-1.5 rounded-lg transition-colors"
                         >
                           <RefreshCw className="h-3 w-3" />
@@ -361,16 +361,26 @@ export function DashboardPage() {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <p className="text-sm text-slate-600 mb-4">
-              Enter a new activation code bound to <strong>{renewTarget.adminEmail}</strong> to extend their subscription.
-            </p>
-            <input
-              type="text"
-              value={renewCode}
-              onChange={(e) => { setRenewCode(e.target.value); setRenewError(''); }}
-              placeholder="XXXX-XXXX-XXXX-XXXX"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-mono tracking-widest text-center text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3"
-            />
+
+            <p className="text-sm text-slate-600 mb-3">Select the new plan for this tenant:</p>
+            <div className="grid grid-cols-1 gap-2 mb-4">
+              {PLANS.map((p) => (
+                <button
+                  key={p.key}
+                  onClick={() => setRenewPlan(p.key)}
+                  className={cn(
+                    'flex items-center justify-between px-4 py-2.5 rounded-xl border-2 text-sm transition-all',
+                    renewPlan === p.key
+                      ? 'border-indigo-600 bg-indigo-50 text-indigo-700 font-semibold'
+                      : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                  )}
+                >
+                  <span>{p.label}</span>
+                  <span className="text-xs opacity-60">{p.duration}</span>
+                </button>
+              ))}
+            </div>
+
             {renewError && <p className="text-sm text-red-600 mb-3">{renewError}</p>}
             <div className="flex gap-3">
               <button
@@ -384,7 +394,7 @@ export function DashboardPage() {
                 disabled={isRenewing}
                 className="flex-1 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 rounded-xl transition-colors"
               >
-                {isRenewing ? 'Renewing…' : 'Renew'}
+                {isRenewing ? 'Renewing…' : 'Renew Subscription'}
               </button>
             </div>
           </div>

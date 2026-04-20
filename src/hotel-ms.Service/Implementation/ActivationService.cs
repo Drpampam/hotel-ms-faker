@@ -296,6 +296,38 @@ namespace hotelier_core_app.Service.Implementation
             return BaseResponse.Success($"Subscription renewed to {PlanLabel(activationCode.PlanType)} plan successfully.");
         }
 
+        public async Task<BaseResponse> AdminRenewSubscriptionAsync(long tenantId, PlanType planType, string callerEmail)
+        {
+            _tenantProvider.SetSchema("public");
+            var tenant = await _tenantQueryRepository.FindAsync(tenantId);
+            if (tenant == null)
+                return BaseResponse.Failure(ResponseMessages.TenantNotExisting);
+
+            var (startDate, endDate) = PlanDates(planType);
+            tenant.PlanType = planType;
+            tenant.SubscriptionStartDate = startDate;
+            tenant.SubscriptionEndDate = endDate;
+            tenant.LastModifiedDate = DateTime.UtcNow;
+            tenant.ModifiedBy = callerEmail;
+
+            await _tenantCommandRepository.UpdateAsync(tenant);
+            await _context.SaveChangesAsync();
+
+            await _auditLogRepository.AddAsync(new AuditLog
+            {
+                Action = UserAction.RenewSubscription,
+                DatePerformed = DateTime.UtcNow,
+                PerformedBy = callerEmail,
+                PerformerEmail = callerEmail,
+                PerformedAgainst = tenant.Name ?? tenantId.ToString(),
+                IpAddress = "Admin-Portal",
+                MacAddress = HashCode(callerEmail)[..16]
+            });
+            await _auditLogRepository.SaveAsync();
+
+            return BaseResponse.Success($"Subscription renewed to {PlanLabel(planType)} plan successfully.");
+        }
+
         public async Task<BaseResponse<ProvisionTenantResponseDTO>> ProvisionTenantAsync(ProvisionTenantRequestDTO request, string ipAddress)
         {
             _tenantProvider.SetSchema("public");

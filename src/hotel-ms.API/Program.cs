@@ -147,8 +147,8 @@ builder.Services.AddAuthentication(x =>
 });
 
 builder.Services.AddAuthorizationBuilder()
-    .AddPolicy("AdminPolicy", policy => policy.RequireRole(UserRole.Admin.ToString()))
-    .AddPolicy("DeveloperPolicy", policy => policy.RequireRole(UserRole.Developer.ToString()));
+    .AddPolicy("AdminPolicy", policy => policy.RequireRole(UserRole.Admin.ToString(), UserRole.Developer.ToString(), "SuperAdmin"))
+    .AddPolicy("DeveloperPolicy", policy => policy.RequireRole(UserRole.Developer.ToString(), "SuperAdmin"));
 
 var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
 builder.Services.AddCors();

@@ -44,6 +44,36 @@ public class ActivationController : ControllerBase
     }
 
     [AllowAnonymous]
+    [HttpPost("self-register")]
+    [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<SelfRegisterResponseDTO>))]
+    public async Task<IActionResult> SelfRegister([FromBody] SelfRegisterRequestDTO request)
+    {
+        var ip = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown";
+        var result = await _activationService.SelfRegisterAsync(request, ip);
+        return result.Status ? Ok(result) : BadRequest(result);
+    }
+
+    [Authorize]
+    [HttpPost("activate-my-account")]
+    [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<ActivateMyAccountResponseDTO>))]
+    public async Task<IActionResult> ActivateMyAccount([FromBody] ActivateMyAccountRequestDTO request)
+    {
+        var callerEmail = _tokenService.GetUserEmail(Request);
+        if (string.IsNullOrWhiteSpace(callerEmail))
+            return Unauthorized();
+
+        var result = await _activationService.ActivateMyAccountAsync(callerEmail, request);
+        if (!result.Status) return BadRequest(result);
+
+        // Issue fresh token + refresh token in headers (same pattern as Login)
+        Response.Headers.TryAdd("Token", result.Data!.Token);
+        Response.Headers.TryAdd("RefreshToken", result.Data.RefreshToken);
+        Response.Headers.TryAdd("X-Tenant-Id", result.Data.TenantId.ToString());
+        Response.Headers.TryAdd("Access-Control-Expose-Headers", "Token,RefreshToken,X-Tenant-Id");
+        return Ok(result);
+    }
+
+    [AllowAnonymous]
     [HttpPost("activate")]
     [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse<ActivateTenantResponseDTO>))]
     public async Task<IActionResult> ActivateTenant([FromBody] ActivateTenantRequestDTO request)

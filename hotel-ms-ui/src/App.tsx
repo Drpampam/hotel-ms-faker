@@ -10,6 +10,8 @@ import { useAuthStore } from './lib/store';
 import { LoginPage } from './pages/auth/LoginPage';
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
 import { ActivatePage } from './pages/auth/ActivatePage';
+import { OnboardPage } from './pages/auth/OnboardPage';
+import { SetupWorkspacePage } from './pages/auth/SetupWorkspacePage';
 
 // Lazy load all protected pages for better performance
 const DashboardPage    = lazy(() => import('./pages/DashboardPage'));
@@ -51,8 +53,19 @@ function App() {
       <Routes>
         {/* Public routes */}
         <Route path="/login"          element={<LoginPage />} />
+        <Route path="/onboard"        element={<OnboardPage />} />
         <Route path="/activate"       element={<ActivatePage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+        {/* Authenticated-but-unactivated workspace setup */}
+        <Route
+          path="/setup"
+          element={
+            <ProtectedRoute>
+              <SetupWorkspacePage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Protected routes */}
         <Route

@@ -45,6 +45,31 @@ export interface GenerateCodeResponse {
   planLabel: string;
 }
 
+export interface SelfRegisterRequest {
+  email: string;
+  fullName: string;
+  hotelName: string;
+  password: string;
+  planType: PlanType;
+}
+
+export interface SelfRegisterResponse {
+  plaintextCode: string;
+  boundToEmail: string;
+  planLabel: string;
+  hotelName: string;
+}
+
+export interface ActivateMyAccountResponse {
+  tenantId: number;
+  tenantName: string;
+  token: string;
+  refreshToken: string;
+  planLabel: string;
+  expiresAt: string | null;
+  isUnlimited: boolean;
+}
+
 export interface TenantSummary {
   id: number;
   name: string;
@@ -82,6 +107,21 @@ const activationService = {
   async getAllTenants(): Promise<TenantSummary[]> {
     const res = await api.get<{ data: TenantSummary[] }>(`${BASE}/tenants`);
     return res.data.data ?? [];
+  },
+
+  async selfRegister(data: SelfRegisterRequest): Promise<SelfRegisterResponse> {
+    const res = await api.post<{ data: SelfRegisterResponse }>(`${BASE}/self-register`, data);
+    return res.data.data;
+  },
+
+  async activateMyAccount(code: string): Promise<ActivateMyAccountResponse & { tokenFromHeader?: string; refreshTokenFromHeader?: string; tenantIdFromHeader?: string }> {
+    const res = await api.post<{ data: ActivateMyAccountResponse }>(`${BASE}/activate-my-account`, { code });
+    return {
+      ...res.data.data,
+      tokenFromHeader: res.headers['token'] as string | undefined,
+      refreshTokenFromHeader: res.headers['refreshtoken'] as string | undefined,
+      tenantIdFromHeader: res.headers['x-tenant-id'] as string | undefined,
+    };
   },
 };
 

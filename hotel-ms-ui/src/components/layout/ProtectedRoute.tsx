@@ -6,7 +6,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, token } = useAuthStore();
+  const { isAuthenticated, token, user, tenantId } = useAuthStore();
   const location = useLocation();
 
   // Check both store state and localStorage token
@@ -15,6 +15,12 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   if (!hasAccess) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Authenticated but tenant not yet provisioned — go to workspace setup
+  const needsSetup = hasAccess && user != null && (!tenantId || tenantId <= 0);
+  if (needsSetup && location.pathname !== '/setup') {
+    return <Navigate to="/setup" replace />;
   }
 
   return <>{children}</>;

@@ -296,6 +296,233 @@ namespace hotelier_core_app.Service.Implementation
             return BaseResponse.Success($"Subscription renewed to {PlanLabel(activationCode.PlanType)} plan successfully.");
         }
 
+        public async Task<BaseResponse<SelfRegisterResponseDTO>> SelfRegisterAsync(SelfRegisterRequestDTO request, string ipAddress)
+        {
+            _tenantProvider.SetSchema("public");
+
+            // Reject if email already registered
+            var existing = await _userManager.FindByEmailAsync(request.Email);
+            if (existing != null)
+                return BaseResponse<SelfRegisterResponseDTO>.Failure(null, "An account with this email already exists.");
+
+            // Create user with no tenant yet (TenantId = null)
+            var user = new ApplicationUser
+            {
+                UserName = request.Email,
+                Email = request.Email,
+                FullName = request.FullName,
+                EmailConfirmed = true,
+                PhoneNumberConfirmed = true,
+                IsActive = true,
+                Status = "Active",
+                TenantId = null,
+                CreatedBy = "Self-Registration",
+                CreationDate = DateTime.UtcNow
+            };
+            var createResult = await _userManager.CreateAsync(user, request.Password);
+            if (!createResult.Succeeded)
+            {
+                var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
+                return BaseResponse<SelfRegisterResponseDTO>.Failure(null, errors);
+            }
+
+            // Store hotel name for later activation (stash in the activation code record)
+            var plaintext = GeneratePlaintextCode();
+            var hash = HashCode(plaintext);
+
+            // Invalidate any previous unused code for this email
+            var prev = await _context.ActivationCodes
+                .FirstOrDefaultAsync(c => c.BoundToEmail == request.Email.ToLower() && !c.IsUsed);
+            if (prev != null) { prev.IsUsed = true; _context.ActivationCodes.Update(prev); }
+
+            _context.ActivationCodes.Add(new ActivationCode
+            {
+                CodeHash = hash,
+                PlanType = request.PlanType,
+                BoundToEmail = request.Email.ToLower(),
+                GeneratedAt = DateTime.UtcNow,
+                GeneratedBy = request.Email,
+                // Stash hotel name in GeneratedBy field using separator, or store as metadata
+                // We re-use GeneratedBy as "email|hotelName" so we can retrieve it at activation
+                // Actually use a dedicated approach — store hotel name in ActivationCode
+            });
+
+            // Remove the code just added and redo with hotel name embedded
+            _context.ActivationCodes.Remove(_context.ActivationCodes.Local.Last());
+
+            _context.ActivationCodes.Add(new ActivationCode
+            {
+                CodeHash = hash,
+                PlanType = request.PlanType,
+                BoundToEmail = request.Email.ToLower(),
+                GeneratedAt = DateTime.UtcNow,
+                GeneratedBy = $"self|{request.HotelName}"
+            });
+
+            await _context.SaveChangesAsync();
+
+            await _auditLogRepository.AddAsync(new AuditLog
+            {
+                Action = UserAction.GenerateActivationCode,
+                DatePerformed = DateTime.UtcNow,
+                PerformedBy = request.FullName,
+                PerformerEmail = request.Email,
+                PerformedAgainst = request.Email,
+                IpAddress = ipAddress,
+                MacAddress = HashCode(request.Email)[..16]
+            });
+            await _auditLogRepository.SaveAsync();
+
+            return BaseResponse<SelfRegisterResponseDTO>.Success(new SelfRegisterResponseDTO
+            {
+                PlaintextCode = FormatCode(plaintext),
+                BoundToEmail = request.Email,
+                PlanLabel = PlanLabel(request.PlanType),
+                HotelName = request.HotelName
+            }, "Registration successful. Use the activation code below to activate your workspace after logging in.");
+        }
+
+        public async Task<BaseResponse<ActivateMyAccountResponseDTO>> ActivateMyAccountAsync(string callerEmail, ActivateMyAccountRequestDTO request)
+        {
+            _tenantProvider.SetSchema("public");
+
+            var user = await _userManager.FindByEmailAsync(callerEmail);
+            if (user == null)
+                return BaseResponse<ActivateMyAccountResponseDTO>.Failure(null, "User not found.");
+
+            if (user.TenantId != null && user.TenantId > 0)
+                return BaseResponse<ActivateMyAccountResponseDTO>.Failure(null, "Your workspace is already activated.");
+
+            var normalized = NormalizeCode(request.Code);
+            var hash = HashCode(normalized);
+
+            var code = await _context.ActivationCodes
+                .FirstOrDefaultAsync(c => c.CodeHash == hash && !c.IsUsed);
+
+            if (code == null)
+                return BaseResponse<ActivateMyAccountResponseDTO>.Failure(null, ResponseMessages.ActivationCodeInvalid);
+
+            if (!code.BoundToEmail.Equals(callerEmail.ToLower(), StringComparison.OrdinalIgnoreCase))
+                return BaseResponse<ActivateMyAccountResponseDTO>.Failure(null, ResponseMessages.ActivationCodeEmailMismatch);
+
+            // Extract hotel name stashed during self-register (format: "self|HotelName")
+            var hotelName = code.GeneratedBy.StartsWith("self|")
+                ? code.GeneratedBy[5..]
+                : user.FullName ?? callerEmail;
+
+            // 1 — Create Tenant in public schema
+            var (startDate, endDate) = PlanDates(code.PlanType);
+            var tenant = new Tenant
+            {
+                Name = hotelName,
+                PlanType = code.PlanType,
+                SubscriptionStartDate = startDate,
+                SubscriptionEndDate = endDate,
+                CreatedBy = callerEmail,
+                CreationDate = DateTime.UtcNow
+            };
+            _context.Tenants.Add(tenant);
+            await _context.SaveChangesAsync();
+
+            // 2 — Provision tenant schema
+            var schema = $"tenant_{tenant.Id}";
+            _tenantProvider.SetSchema(schema);
+            try
+            {
+                await _context.Database.MigrateAsync();
+            }
+            catch (Exception ex) when (ex.GetBaseException().Message.Contains("already exists"))
+            {
+                _logger.LogWarning("Schema {Schema} already exists — stamping pending migrations.", schema);
+                foreach (var mig in _context.Database.GetPendingMigrations())
+                {
+                    await _context.Database.ExecuteSqlRawAsync(
+                        "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ({0}, {1}) ON CONFLICT DO NOTHING",
+                        mig, "8.0.0");
+                }
+            }
+
+            await _context.Database.ExecuteSqlRawAsync(@"
+                ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Shift""      varchar(50);
+                ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Department"" varchar(100);
+            ");
+
+            // 3 — Seed roles in tenant schema
+            var roleNames = new[] { "SuperAdmin", "Admin", "FrontDesk", "Housekeeping", "Guest", "Developer" };
+            foreach (var roleName in roleNames)
+            {
+                if (!await _roleManager.RoleExistsAsync(roleName))
+                {
+                    await _roleManager.CreateAsync(new ApplicationRole
+                    {
+                        Name = roleName,
+                        TenantId = tenant.Id,
+                        CreationDate = DateTime.UtcNow,
+                        CreatedBy = callerEmail
+                    });
+                }
+            }
+
+            // 4 — Update existing user's TenantId in public schema
+            _tenantProvider.SetSchema("public");
+            user.TenantId = tenant.Id;
+            await _userManager.UpdateAsync(user);
+
+            // 5 — Assign SuperAdmin role
+            var superAdminRole = await _roleManager.FindByNameAsync("SuperAdmin");
+            if (superAdminRole != null)
+            {
+                var hasRole = await _context.UserRoles
+                    .AnyAsync(ur => ur.UserId == user.Id && ur.RoleId == superAdminRole.Id);
+                if (!hasRole)
+                {
+                    _context.UserRoles.Add(new ApplicationUserRole
+                    {
+                        UserId = user.Id,
+                        RoleId = superAdminRole.Id,
+                        TenantId = tenant.Id
+                    });
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            // 6 — Mark code used
+            code.IsUsed = true;
+            code.UsedAt = DateTime.UtcNow;
+            code.UsedByTenantId = tenant.Id;
+            _context.ActivationCodes.Update(code);
+            await _context.SaveChangesAsync();
+
+            // 7 — Issue fresh token with updated claims
+            var token = _tokenService.GenerateJSONWebToken(user.FullName!, user.Email!, new List<string> { "SuperAdmin" });
+            var refreshToken = GenerateRefreshToken();
+            user.RefreshToken = refreshToken;
+            await _userManager.UpdateAsync(user);
+
+            await _auditLogRepository.AddAsync(new AuditLog
+            {
+                Action = UserAction.ActivateTenant,
+                DatePerformed = DateTime.UtcNow,
+                PerformedBy = user.FullName,
+                PerformerEmail = callerEmail,
+                PerformedAgainst = hotelName,
+                IpAddress = "Self-activation",
+                MacAddress = HashCode(callerEmail)[..16]
+            });
+            await _auditLogRepository.SaveAsync();
+
+            return BaseResponse<ActivateMyAccountResponseDTO>.Success(new ActivateMyAccountResponseDTO
+            {
+                TenantId = tenant.Id,
+                TenantName = hotelName,
+                Token = token,
+                RefreshToken = refreshToken,
+                PlanLabel = PlanLabel(code.PlanType),
+                ExpiresAt = endDate,
+                IsUnlimited = code.PlanType == PlanType.Unlimited
+            }, "Workspace activated successfully! Welcome to HotelMS.");
+        }
+
         public async Task<BaseResponse<List<TenantSummaryDTO>>> GetAllTenantsAsync()
         {
             _tenantProvider.SetSchema("public");

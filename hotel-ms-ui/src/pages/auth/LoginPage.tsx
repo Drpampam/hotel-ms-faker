@@ -283,6 +283,14 @@ export function LoginPage() {
               Use your hotel system credentials to sign in
             </p>
           </div>
+
+          {/* Onboarding link */}
+          <p className="text-center text-sm text-slate-400 mt-5">
+            New to HotelMS?{' '}
+            <a href="/onboard" className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">
+              Get started free
+            </a>
+          </p>
         </div>
 
         <p className="text-center text-xs text-slate-600 mt-6">

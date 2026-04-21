@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Copy, Check, KeyRound, RefreshCw } from 'lucide-react';
+import { Copy, Check, KeyRound, RefreshCw, X, Building2, Mail, Calendar, Clock, ShieldCheck, Zap } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -19,9 +19,124 @@ const PLAN_OPTIONS = [
 
 type PlanValue = typeof PLAN_OPTIONS[number]['value'];
 
+// ── Tenant detail slide-over ──────────────────────────────────────────────────
+function TenantDetailPanel({ tenant, onClose, onRenew }: {
+  tenant: TenantSummary;
+  onClose: () => void;
+  onRenew: (t: TenantSummary) => void;
+}) {
+  const planColor =
+    tenant.isUnlimited ? 'text-cyan-600 dark:text-cyan-400' :
+    tenant.isExpired   ? 'text-red-600 dark:text-red-400' :
+    (tenant.daysRemaining ?? 999) <= 14 ? 'text-amber-600 dark:text-amber-400' :
+    'text-emerald-600 dark:text-emerald-400';
+
+  return (
+    <div className="fixed inset-0 z-40 flex justify-end">
+      {/* backdrop */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+
+      {/* panel */}
+      <div className="relative w-full max-w-md bg-white dark:bg-slate-900 shadow-2xl flex flex-col h-full animate-slide-right">
+        {/* header */}
+        <div className="flex items-start justify-between p-6 border-b border-slate-200 dark:border-slate-700">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-indigo-100 dark:bg-indigo-900/40 rounded-xl">
+              <Building2 className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{tenant.name}</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Tenant ID: #{tenant.id}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Status banner */}
+          <div className={`rounded-xl p-4 border ${
+            tenant.isExpired
+              ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+              : (tenant.daysRemaining ?? 999) <= 14 && !tenant.isUnlimited
+              ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+              : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+          }`}>
+            <div className="flex items-center gap-2 mb-1">
+              <ShieldCheck className={`h-4 w-4 ${planColor}`} />
+              <span className={`text-sm font-semibold ${planColor}`}>{tenant.planLabel}</span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {tenant.isUnlimited
+                ? 'Unlimited access — no expiry'
+                : tenant.isExpired
+                ? 'Subscription has expired'
+                : `${tenant.daysRemaining} day${tenant.daysRemaining !== 1 ? 's' : ''} remaining`}
+            </p>
+          </div>
+
+          {/* Details grid */}
+          <div className="space-y-4">
+            <DetailRow icon={<Mail className="h-4 w-4" />} label="Admin Email" value={tenant.adminEmail} />
+            <DetailRow icon={<Zap className="h-4 w-4" />}  label="Plan"        value={tenant.planLabel} />
+            <DetailRow
+              icon={<Calendar className="h-4 w-4" />}
+              label="Onboarded"
+              value={formatDate(tenant.createdAt)}
+            />
+            {!tenant.isUnlimited && (
+              <DetailRow
+                icon={<Clock className="h-4 w-4" />}
+                label="Expires"
+                value={tenant.expiresAt ? formatDate(tenant.expiresAt) : '—'}
+              />
+            )}
+            <div className="flex items-center justify-between py-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-sm text-slate-500 dark:text-slate-400">Account Status</span>
+              {tenant.isUnlimited
+                ? <Badge variant="success">Unlimited</Badge>
+                : tenant.isExpired
+                ? <Badge variant="danger">Expired</Badge>
+                : (tenant.daysRemaining ?? 999) <= 14
+                ? <Badge variant="warning">{tenant.daysRemaining}d left</Badge>
+                : <Badge variant="success">Active</Badge>
+              }
+            </div>
+          </div>
+        </div>
+
+        {/* footer actions */}
+        <div className="p-6 border-t border-slate-200 dark:border-slate-700 flex gap-3">
+          <Button variant="secondary" className="flex-1" onClick={onClose}>Close</Button>
+          <Button className="flex-1" onClick={() => { onClose(); onRenew(tenant); }}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Renew Plan
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between py-3 border-t border-slate-100 dark:border-slate-800 first:border-0 first:pt-0">
+      <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+        {icon}
+        <span className="text-sm">{label}</span>
+      </div>
+      <span className="text-sm font-medium text-slate-900 dark:text-white">{value}</span>
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 export default function TenantsPage() {
   const [tenants, setTenants] = useState<TenantSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedTenant, setSelectedTenant] = useState<TenantSummary | null>(null);
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
   const [isRenewOpen, setIsRenewOpen] = useState(false);
   const [renewTarget, setRenewTarget] = useState<TenantSummary | null>(null);
@@ -80,6 +195,8 @@ export default function TenantsPage() {
     setIsRenewOpen(true);
   };
 
+  const openDetail = (tenant: TenantSummary) => setSelectedTenant(tenant);
+
   const handleRenew = async () => {
     if (!renewTarget || !renewCode.trim()) { toast.error('Activation code is required'); return; }
     setIsBusy(true);
@@ -107,7 +224,11 @@ export default function TenantsPage() {
     {
       key: 'name',
       header: 'Hotel / Tenant',
-      render: (t) => <span className="font-medium text-slate-900 dark:text-slate-100">{t.name}</span>,
+      render: (t) => (
+        <span className="font-medium text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+          {t.name}
+        </span>
+      ),
     },
     {
       key: 'adminEmail',
@@ -156,8 +277,17 @@ export default function TenantsPage() {
           keyField="id"
           isLoading={isLoading}
           emptyMessage="No tenants onboarded yet."
+          onRowClick={openDetail}
         />
       </Card>
+
+      {selectedTenant && (
+        <TenantDetailPanel
+          tenant={selectedTenant}
+          onClose={() => setSelectedTenant(null)}
+          onRenew={openRenew}
+        />
+      )}
 
       {/* Generate code modal */}
       <Modal isOpen={isGenerateOpen} onClose={closeGenerate} title="Generate Activation Code">

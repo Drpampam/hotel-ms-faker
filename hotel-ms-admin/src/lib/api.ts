@@ -6,7 +6,7 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://hotel-ms-api-tfvt
 const api = axios.create({
   baseURL: BASE_URL,
   timeout: 60000,
-  headers: { 'Content-Type': 'application/json' },
+  headers: { 'Content-Type': 'application/json', 'X-Admin-Portal': '1' },
 });
 
 api.interceptors.request.use((config) => {

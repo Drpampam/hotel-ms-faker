@@ -43,6 +43,7 @@ namespace hotelier_core_app.Service.Implementation
         private readonly string _clientUrl;
         private const string HOTELIER_ADMIN = "Hotelier Admin";
         private const string HOTELIER_ADMIN_EMAIL = "admin@hotelier.com";
+        private const string MASTER_ADMIN_EMAIL = "admin@hotelier.io";
         private readonly IModuleService _moduleService;
 
         public UserService(
@@ -253,9 +254,12 @@ namespace hotelier_core_app.Service.Implementation
             return BaseResponse<ApplicationUserDTO>.Success(userResponse);
         }
 
-        public async Task<PageBaseResponse<List<ApplicationUserDTO>>> GetUsers(PageParamsDTO model)
+        public async Task<PageBaseResponse<List<ApplicationUserDTO>>> GetUsers(PageParamsDTO model, long? callerTenantId)
         {
-            var usersQuery =  _userManager.Users.Where(u => !u.IsDeleted);
+            var usersQuery = _userManager.Users
+                .Where(u => !u.IsDeleted
+                    && u.TenantId == callerTenantId
+                    && u.Email != MASTER_ADMIN_EMAIL);
             var totalUsers = await usersQuery.CountAsync();
             if (totalUsers == 0)
             {
@@ -355,77 +359,51 @@ namespace hotelier_core_app.Service.Implementation
             {
                 if (user.IsActive)
                 {
-                    List<string> validRoles = new List<string>();
-
                     if (model.Roles != null)
                     {
                         foreach (var role in model.Roles)
                         {
                             if (!await _roleManager.RoleExistsAsync(role))
+                                return BaseResponse.Failure(ResponseMessages.RoleNotExist, ResponseStatusCode.RoleNotExist);
+                        }
+
+                        // Enforce one SuperAdmin per tenant
+                        if (model.Roles.Contains("SuperAdmin", StringComparer.OrdinalIgnoreCase))
+                        {
+                            var others = await _userManager.Users
+                                .Where(u => u.TenantId == user.TenantId && !u.IsDeleted && u.Id != user.Id)
+                                .ToListAsync();
+                            foreach (var u in others)
                             {
-                                return BaseResponse.Failure(ResponseMessages.RoleNotExist, ResponseStatusCode.RoleNotExist); ;
+                                var roles = await _userManager.GetRolesAsync(u);
+                                if (roles.Contains("SuperAdmin"))
+                                    return BaseResponse.Failure("A SuperAdmin already exists for this tenant. Only one SuperAdmin is allowed per tenant.", ResponseStatusCode.OperationFailed);
                             }
                         }
                     }
 
                     var currentRoles = await _userManager.GetRolesAsync(user);
-                    
                     var removeUserFromRole = await _userManager.RemoveFromRolesAsync(user, currentRoles);
                     if (!removeUserFromRole.Succeeded)
-                    {
                         return BaseResponse.Failure(ResponseMessages.RoleReassignmentError, ResponseStatusCode.GeneralError);
-                    }
-                    
-                    var addUserToRole = await _userManager.AddToRolesAsync(user, model.Roles);
-                    if (!addUserToRole.Succeeded)
+
+                    foreach (var roleName in model.Roles ?? new List<string>())
                     {
-                        return BaseResponse.Failure(ResponseMessages.RoleReassignmentError, ResponseStatusCode.GeneralError);
+                        var role = await _roleManager.FindByNameAsync(roleName);
+                        if (role != null && user.TenantId.HasValue)
+                        {
+                            await _userRoleCommandRepository.AddAsync(new ApplicationUserRole
+                            {
+                                UserId = user.Id,
+                                RoleId = role.Id,
+                                TenantId = user.TenantId.Value
+                            });
+                        }
                     }
-                    
+                    await _userRoleCommandRepository.SaveAsync();
+
                     await _auditLogCommandRepository.AddAsync(auditLog);
                     await _auditLogCommandRepository.SaveAsync();
-
-                    // find matching roles
-                    // if found, mark for exclusion from deletion
-                    // check if any changes exists for the role reassignment
-
-                    //if (currentRoles.Contains(newRole))
-                    //{
-                    //    return true;
-                    //}
-
-                    /*
-                        ApplicationUserRole userRole = await _userRoleQueryRepository.GetByDefaultAsync(predicate => predicate.UserId == user.Id);
-                        userRole.RoleId = model.RoleId;
-                        _userRoleCommandRepository.Update(userRole);
-                        _auditLogCommandRepository.Add(auditLog);
-
-                        await _userRoleCommandRepository.SaveAsync();
-                        await _auditLogCommandRepository.SaveAsync();
-
-                        return BaseResponse.Success(ResponseMessages.UpdateSuccessful);
-                    }
-
-                            */
-
-
-                    //var currentRoles = await _userManager.GetRolesAsync(user);
-
-                    //// Remove old roles
-                    //var removeResult = await _userManager.RemoveFromRolesAsync(user, currentRoles);
-                    //if (!removeResult.Succeeded)
-                    //{
-                    //    _logger.LogError($"Failed to remove existing roles for user {user.Email}.");
-                    //    return false;
-                    //}
-
-                    //// Assign new role
-                    //var addResult = await _userManager.AddToRoleAsync(user, newRole);
-                    //if (!addResult.Succeeded)
-                    //{
-                    //    _logger.LogError($"Failed to add role {newRole} to user {user.Email}.");
-                    //    return false;
-                    //}
 
                     return BaseResponse.Success(ResponseMessages.RoleUpdated);
                 }
@@ -487,21 +465,46 @@ namespace hotelier_core_app.Service.Implementation
 
             if (model.Roles != null && model.Roles.Any())
             {
+                // Enforce one SuperAdmin per tenant
+                if (model.Roles.Contains("SuperAdmin", StringComparer.OrdinalIgnoreCase))
+                {
+                    var existingSuperAdmin = await _userManager.Users
+                        .Where(u => u.TenantId == user.TenantId && !u.IsDeleted && u.Id != user.Id)
+                        .ToListAsync();
+                    foreach (var u in existingSuperAdmin)
+                    {
+                        var roles = await _userManager.GetRolesAsync(u);
+                        if (roles.Contains("SuperAdmin"))
+                            return BaseResponse.Failure("A SuperAdmin already exists for this tenant. Only one SuperAdmin is allowed per tenant.", ResponseStatusCode.OperationFailed);
+                    }
+                }
+
                 var currentRoles = await _userManager.GetRolesAsync(user);
                 await _userManager.RemoveFromRolesAsync(user, currentRoles);
-                foreach (var role in model.Roles)
+
+                foreach (var roleName in model.Roles)
                 {
-                    if (!await _roleManager.RoleExistsAsync(role))
+                    if (!await _roleManager.RoleExistsAsync(roleName))
                     {
                         await _roleManager.CreateAsync(new ApplicationRole
                         {
-                            Name = role,
+                            Name = roleName,
                             CreationDate = DateTime.UtcNow,
                             CreatedBy = auditLog.PerformedBy ?? HOTELIER_ADMIN
                         });
                     }
+                    var role = await _roleManager.FindByNameAsync(roleName);
+                    if (role != null && user.TenantId.HasValue)
+                    {
+                        await _userRoleCommandRepository.AddAsync(new ApplicationUserRole
+                        {
+                            UserId = user.Id,
+                            RoleId = role.Id,
+                            TenantId = user.TenantId.Value
+                        });
+                    }
                 }
-                await _userManager.AddToRolesAsync(user, model.Roles);
+                await _userRoleCommandRepository.SaveAsync();
             }
 
             _auditLogCommandRepository.Add(auditLog);

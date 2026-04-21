@@ -136,6 +136,12 @@ namespace hotelier_core_app.Service.Implementation
             return GetHeaderValue(request, "MacAddress");
         }
 
+        public long? GetTenantId(HttpRequest request)
+        {
+            var raw = GetSingleClaimValue(ExtractSecurityToken(request), "tenantId");
+            return long.TryParse(raw, out var id) ? id : null;
+        }
+
         /// <summary>
         /// Extracts claims from the token in the HTTP request.
         /// </summary>

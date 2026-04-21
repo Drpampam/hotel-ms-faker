@@ -122,6 +122,15 @@ namespace hotelier_core_app.API.Controllers
         [ProducesResponseType((int)HttpStatusCode.BadRequest, Type = typeof(ValidationResultModel))]
         public async Task<IActionResult> Login(UserLoginRequestDTO model)
         {
+            // Master admin account can only be accessed from the admin portal
+            const string masterAdminEmail = "admin@hotelier.io";
+            if (string.Equals(model.Email, masterAdminEmail, StringComparison.OrdinalIgnoreCase))
+            {
+                var portalHeader = Request.Headers["X-Admin-Portal"].FirstOrDefault();
+                if (portalHeader != "1")
+                    return Unauthorized(new { Status = false, Message = "Access denied." });
+            }
+
             AuditLog auditLog = new AuditLog
             {
                 Action = UserAction.UserLogin,
@@ -307,7 +316,8 @@ namespace hotelier_core_app.API.Controllers
         [ProducesResponseType((int)HttpStatusCode.InternalServerError, Type = typeof(BaseResponse))]
         public async Task<IActionResult> GetUsers(PageParamsDTO model)
         {
-            var response = await _userService.GetUsers(model);
+            var callerTenantId = _tokenHelper.GetTenantId(Request);
+            var response = await _userService.GetUsers(model, callerTenantId);
             return Ok(response);
         }
 

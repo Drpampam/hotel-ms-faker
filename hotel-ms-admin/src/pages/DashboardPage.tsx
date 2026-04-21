@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Copy, Check, KeyRound, RefreshCw, Plus, X, Hotel, LogOut } from 'lucide-react';
+import { Copy, Check, KeyRound, RefreshCw, Plus, X, Hotel, LogOut, ChevronRight, Calendar, Mail, Tag, ShieldCheck } from 'lucide-react';
 import { useAdminStore } from '../lib/store';
-import adminService, { type ProvisionResult, type TenantSummary } from '../services/admin.service';
+import adminService, { type ProvisionResult, type TenantSummary, type GenerateCodeResult } from '../services/admin.service';
 import { cn } from '../lib/utils';
 
 type PlanKey = 'Trial' | 'Monthly3' | 'Monthly6' | 'FiveYear' | 'Unlimited';
@@ -45,6 +45,18 @@ function formatDate(d: string | null) {
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-3 py-3 border-b border-slate-100 last:border-0">
+      <div className="text-slate-400 mt-0.5">{icon}</div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs text-slate-500">{label}</p>
+        <div className="text-sm font-medium text-slate-800 mt-0.5">{value}</div>
+      </div>
+    </div>
+  );
+}
+
 export function DashboardPage() {
   const { user, logout } = useAdminStore();
 
@@ -61,11 +73,18 @@ export function DashboardPage() {
   const [tenants, setTenants] = useState<TenantSummary[]>([]);
   const [isLoadingTenants, setIsLoadingTenants] = useState(true);
 
-  // Renew state
+  // Renew modal state
   const [renewTarget, setRenewTarget] = useState<TenantSummary | null>(null);
   const [renewPlan, setRenewPlan] = useState<PlanKey>('Monthly3');
   const [isRenewing, setIsRenewing] = useState(false);
   const [renewError, setRenewError] = useState('');
+
+  // Detail panel state
+  const [selectedTenant, setSelectedTenant] = useState<TenantSummary | null>(null);
+  const [genCodePlan, setGenCodePlan] = useState<PlanKey>('Trial');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [genCodeResult, setGenCodeResult] = useState<GenerateCodeResult | null>(null);
+  const [genCodeError, setGenCodeError] = useState('');
 
   const fetchTenants = useCallback(async () => {
     setIsLoadingTenants(true);
@@ -116,6 +135,35 @@ export function DashboardPage() {
       setRenewError(err instanceof Error ? err.message : 'Renewal failed.');
     } finally {
       setIsRenewing(false);
+    }
+  };
+
+  const openDetail = (t: TenantSummary) => {
+    setSelectedTenant(t);
+    setGenCodePlan('Trial');
+    setGenCodeResult(null);
+    setGenCodeError('');
+  };
+
+  const closeDetail = () => {
+    setSelectedTenant(null);
+    setGenCodeResult(null);
+    setGenCodeError('');
+  };
+
+  const handleGenerateCode = async () => {
+    if (!selectedTenant) return;
+    setGenCodeError('');
+    setGenCodeResult(null);
+    setIsGenerating(true);
+    try {
+      const data = await adminService.generateCode(selectedTenant.adminEmail, genCodePlan);
+      setGenCodeResult(data);
+      fetchTenants();
+    } catch (err) {
+      setGenCodeError(err instanceof Error ? err.message : 'Failed to generate code.');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -321,7 +369,11 @@ export function DashboardPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {tenants.map((t) => (
-                    <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                    <tr
+                      key={t.id}
+                      onClick={() => openDetail(t)}
+                      className="hover:bg-slate-50 transition-colors cursor-pointer"
+                    >
                       <td className="px-6 py-3.5 font-medium text-slate-900">
                         {t.name || <span className="text-slate-400 italic">Pending activation</span>}
                       </td>
@@ -331,13 +383,16 @@ export function DashboardPage() {
                       <td className="px-4 py-3.5 text-slate-600">{t.isUnlimited ? '—' : formatDate(t.expiresAt)}</td>
                       <td className="px-4 py-3.5 text-slate-600">{formatDate(t.createdAt)}</td>
                       <td className="px-4 py-3.5">
-                        <button
-                          onClick={() => { setRenewTarget(t); setRenewPlan('Monthly3'); setRenewError(''); }}
-                          className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 px-2.5 py-1.5 rounded-lg transition-colors"
-                        >
-                          <RefreshCw className="h-3 w-3" />
-                          Renew
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setRenewTarget(t); setRenewPlan('Monthly3'); setRenewError(''); }}
+                            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 px-2.5 py-1.5 rounded-lg transition-colors"
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                            Renew
+                          </button>
+                          <ChevronRight className="h-4 w-4 text-slate-300" />
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -399,6 +454,160 @@ export function DashboardPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Tenant detail slide-over */}
+      {selectedTenant && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/30 z-40"
+            onClick={closeDetail}
+          />
+          <aside className="fixed inset-y-0 right-0 w-full max-w-sm bg-white shadow-2xl z-50 flex flex-col animate-slide-in-right">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <h2 className="font-semibold text-slate-900">Tenant Details</h2>
+              <button onClick={closeDetail} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+              {/* Status banner */}
+              <div className={cn(
+                'rounded-xl px-4 py-3 flex items-center gap-2',
+                selectedTenant.isUnlimited ? 'bg-purple-50 text-purple-700' :
+                selectedTenant.isExpired    ? 'bg-red-50 text-red-700' :
+                selectedTenant.daysRemaining !== null && selectedTenant.daysRemaining <= 14
+                  ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'
+              )}>
+                <ShieldCheck className="h-4 w-4 flex-shrink-0" />
+                <span className="text-sm font-medium">
+                  {selectedTenant.isUnlimited ? 'Unlimited plan — never expires' :
+                   selectedTenant.isExpired    ? 'Subscription expired' :
+                   selectedTenant.daysRemaining !== null && selectedTenant.daysRemaining <= 14
+                     ? `${selectedTenant.daysRemaining} day${selectedTenant.daysRemaining === 1 ? '' : 's'} remaining`
+                     : 'Active subscription'}
+                </span>
+              </div>
+
+              {/* Info rows */}
+              <div>
+                <DetailRow
+                  icon={<Hotel className="h-4 w-4" />}
+                  label="Tenant name"
+                  value={selectedTenant.name || <span className="text-slate-400 italic">Pending activation</span>}
+                />
+                <DetailRow
+                  icon={<Mail className="h-4 w-4" />}
+                  label="Admin email"
+                  value={selectedTenant.adminEmail}
+                />
+                <DetailRow
+                  icon={<Tag className="h-4 w-4" />}
+                  label="Plan"
+                  value={<span className="flex items-center gap-2">{selectedTenant.planLabel} <StatusBadge t={selectedTenant} /></span>}
+                />
+                <DetailRow
+                  icon={<Calendar className="h-4 w-4" />}
+                  label="Expires"
+                  value={selectedTenant.isUnlimited ? '—' : formatDate(selectedTenant.expiresAt)}
+                />
+                <DetailRow
+                  icon={<Calendar className="h-4 w-4" />}
+                  label="Onboarded"
+                  value={formatDate(selectedTenant.createdAt)}
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="space-y-3">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setRenewTarget(selectedTenant); setRenewPlan('Monthly3'); setRenewError(''); }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-300 text-slate-700 hover:bg-slate-50 text-sm font-medium rounded-xl transition-colors"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Admin Renew (no code required)
+                </button>
+              </div>
+
+              {/* Issue new activation code */}
+              <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+                    <KeyRound className="h-4 w-4 text-indigo-500" />
+                    Issue New Activation Code
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Generate a fresh code the client can enter on their Subscription page to upgrade their plan.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1.5">Plan for this code</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PLANS.map((p) => (
+                      <button
+                        key={p.key}
+                        onClick={() => { setGenCodePlan(p.key); setGenCodeResult(null); setGenCodeError(''); }}
+                        className={cn(
+                          'px-3 py-1.5 rounded-lg text-xs font-medium border transition-all',
+                          genCodePlan === p.key
+                            ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
+                            : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                        )}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {genCodeError && (
+                  <p className="text-xs text-red-600">{genCodeError}</p>
+                )}
+
+                {genCodeResult ? (
+                  <div className="bg-slate-900 rounded-xl p-4 space-y-3 text-xs font-mono">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400 font-sans text-xs uppercase tracking-wide">Plan</span>
+                      <span className="text-green-400">{genCodeResult.planLabel}</span>
+                    </div>
+                    <div className="border-t border-slate-700" />
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400 font-sans text-xs uppercase tracking-wide">Activation Code</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-indigo-400 tracking-widest">{genCodeResult.plaintextCode}</span>
+                        <CopyButton text={genCodeResult.plaintextCode} />
+                      </div>
+                    </div>
+                    <p className="text-slate-500 font-sans text-xs pt-1">
+                      Send this code to <strong className="text-slate-300">{genCodeResult.boundToEmail}</strong>. They enter it on their Subscription page.
+                    </p>
+                    <button
+                      onClick={() => { setGenCodeResult(null); setGenCodeError(''); }}
+                      className="text-slate-400 hover:text-slate-200 text-xs"
+                    >
+                      Generate another
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleGenerateCode}
+                    disabled={isGenerating}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-medium rounded-xl transition-colors"
+                  >
+                    {isGenerating ? (
+                      <><svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> Generating…</>
+                    ) : (
+                      <><KeyRound className="h-4 w-4" /> Generate Code</>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          </aside>
+        </>
       )}
     </div>
   );

@@ -22,7 +22,7 @@ namespace hotelier_core_app.Service.Interface
 
         Task<(BaseResponse<RefreshTokenResponseDTO>, string)> RefreshToken(RefreshTokenRequestDTO model, AuditLog auditLog);
 
-        Task<PageBaseResponse<List<ApplicationUserDTO>>> GetUsers(PageParamsDTO model);
+        Task<PageBaseResponse<List<ApplicationUserDTO>>> GetUsers(PageParamsDTO model, long? callerTenantId);
 
         Task<BaseResponse<ApplicationUserDTO>> GetUserByEmail(string email);
 

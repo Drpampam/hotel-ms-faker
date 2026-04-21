@@ -17,5 +17,7 @@ namespace hotelier_core_app.Service.Interface
         JwtSecurityToken GetClaims(string token);
 
         string GetMacAddress(HttpRequest Request);
+
+        long? GetTenantId(HttpRequest Request);
     }
 }

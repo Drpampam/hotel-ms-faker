@@ -28,12 +28,19 @@ export interface TenantSummary {
   name: string;
   adminEmail: string;
   planLabel: string;
+  planType?: number;
   isActive: boolean;
   isExpired: boolean;
   isUnlimited: boolean;
   expiresAt: string | null;
   daysRemaining: number | null;
   createdAt: string;
+}
+
+export interface GenerateCodeResult {
+  plaintextCode: string;
+  boundToEmail: string;
+  planLabel: string;
 }
 
 const adminService = {
@@ -64,6 +71,11 @@ const adminService = {
 
   async renewSubscription(tenantId: number, planType: PlanType): Promise<void> {
     await api.post(`/api/v1/activation/admin-renew/${tenantId}`, { planType });
+  },
+
+  async generateCode(email: string, planType: PlanType): Promise<GenerateCodeResult> {
+    const res = await api.post<{ data: GenerateCodeResult }>('/api/v1/activation/generate', { email, planType });
+    return res.data.data;
   },
 };
 

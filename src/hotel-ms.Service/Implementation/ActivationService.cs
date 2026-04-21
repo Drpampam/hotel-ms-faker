@@ -799,7 +799,7 @@ namespace hotelier_core_app.Service.Implementation
 
         private static string GeneratePlaintextCode()
         {
-            var bytes = new byte[12];
+            var bytes = new byte[8]; // 8 bytes = 16 hex chars = exactly what FormatCode displays
             RandomNumberGenerator.Fill(bytes);
             return Convert.ToHexString(bytes);
         }

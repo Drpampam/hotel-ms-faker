@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Copy, Check, KeyRound, RefreshCw, X, Building2, Mail, Calendar, Clock, ShieldCheck, Zap } from 'lucide-react';
+import { Copy, Check, KeyRound, RefreshCw, X, Building2, Mail, Calendar, Clock, ShieldCheck, Zap, Send } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -20,10 +20,11 @@ const PLAN_OPTIONS = [
 type PlanValue = typeof PLAN_OPTIONS[number]['value'];
 
 // ── Tenant detail slide-over ──────────────────────────────────────────────────
-function TenantDetailPanel({ tenant, onClose, onRenew }: {
+function TenantDetailPanel({ tenant, onClose, onRenew, onIssueCode }: {
   tenant: TenantSummary;
   onClose: () => void;
   onRenew: (t: TenantSummary) => void;
+  onIssueCode: (t: TenantSummary) => void;
 }) {
   const planColor =
     tenant.isUnlimited ? 'text-cyan-600 dark:text-cyan-400' :
@@ -108,12 +109,18 @@ function TenantDetailPanel({ tenant, onClose, onRenew }: {
         </div>
 
         {/* footer actions */}
-        <div className="p-6 border-t border-slate-200 dark:border-slate-700 flex gap-3">
-          <Button variant="secondary" className="flex-1" onClick={onClose}>Close</Button>
-          <Button className="flex-1" onClick={() => { onClose(); onRenew(tenant); }}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Renew Plan
+        <div className="p-6 border-t border-slate-200 dark:border-slate-700 space-y-2">
+          <Button className="w-full" onClick={() => { onClose(); onIssueCode(tenant); }}>
+            <Send className="h-4 w-4 mr-2" />
+            Issue New Activation Code
           </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" className="flex-1" onClick={onClose}>Close</Button>
+            <Button variant="secondary" className="flex-1" onClick={() => { onClose(); onRenew(tenant); }}>
+              <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+              Admin Renew
+            </Button>
+          </div>
         </div>
       </div>
     </div>
@@ -196,6 +203,15 @@ export default function TenantsPage() {
   };
 
   const openDetail = (tenant: TenantSummary) => setSelectedTenant(tenant);
+
+  const issueCodeForTenant = (tenant: TenantSummary) => {
+    setEmail(tenant.adminEmail);
+    // keep same plan tier they already have
+    const planMap: Record<number, PlanValue> = { 1: 'Trial', 2: 'Monthly3', 3: 'Monthly6', 4: 'FiveYear', 5: 'Unlimited' };
+    setPlanType(planMap[tenant.planType] ?? 'Monthly3');
+    setGenerated(null);
+    setIsGenerateOpen(true);
+  };
 
   const handleRenew = async () => {
     if (!renewTarget || !renewCode.trim()) { toast.error('Activation code is required'); return; }
@@ -286,6 +302,7 @@ export default function TenantsPage() {
           tenant={selectedTenant}
           onClose={() => setSelectedTenant(null)}
           onRenew={openRenew}
+          onIssueCode={issueCodeForTenant}
         />
       )}
 

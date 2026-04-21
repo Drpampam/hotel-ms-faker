@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Hotel, Lock, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, Hotel, Lock, ShieldCheck, LogOut } from 'lucide-react';
 import { authService } from '../../services/auth.service';
 import { useAuthStore } from '../../lib/store';
 import { useToast } from '../../lib/store';
@@ -8,7 +8,7 @@ import { useToast } from '../../lib/store';
 export default function ChangePasswordPage() {
   const navigate = useNavigate();
   const toast = useToast();
-  const { user, setUser } = useAuthStore();
+  const { user, setUser, logout } = useAuthStore();
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -172,6 +172,16 @@ export default function ChangePasswordPage() {
               {isLoading ? 'Changing password…' : 'Set New Password & Continue'}
             </button>
           </form>
+
+          <div className="mt-4 flex justify-center">
+            <button
+              onClick={() => { logout(); navigate('/login'); }}
+              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sign out and go to login
+            </button>
+          </div>
         </div>
       </div>
     </div>

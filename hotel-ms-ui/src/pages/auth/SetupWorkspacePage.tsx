@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Hotel, KeyRound, ArrowRight } from 'lucide-react';
+import { Hotel, KeyRound, ArrowRight, LogOut } from 'lucide-react';
 import { useAuthStore } from '../../lib/store';
 import activationService from '../../services/activation.service';
 
 export function SetupWorkspacePage() {
   const navigate = useNavigate();
-  const { user, setAuth } = useAuthStore();
+  const { user, setAuth, logout } = useAuthStore();
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -113,12 +113,15 @@ export function SetupWorkspacePage() {
             </button>
           </div>
 
-          <p className="text-xs text-slate-400 dark:text-slate-500 text-center mt-5">
-            Don't have a code?{' '}
-            <a href="/onboard" className="text-indigo-600 hover:underline font-medium">
-              Register first
-            </a>
-          </p>
+          <div className="mt-5 flex items-center justify-center">
+            <button
+              onClick={() => { logout(); navigate('/login'); }}
+              className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sign out and go to login
+            </button>
+          </div>
         </div>
       </div>
     </div>

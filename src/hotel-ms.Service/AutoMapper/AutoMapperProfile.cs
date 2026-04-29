@@ -30,6 +30,11 @@ namespace hotelier_core_app.Service.AutoMapper
             CreateMap<ModuleGroup, ModuleGroupDTO>();
             CreateMap<Module, ModuleDTO>();
             CreateMap<ApplicationRole, RoleDTO>();
+            CreateMap<ApplicationRole, RoleResponseDTO>();
+            CreateMap<CreateRoleRequestDTO, ApplicationRole>()
+                .ForMember(x => x.Name, y => y.MapFrom(p => p.RoleName));
+            CreateMap<UpdateRoleRequestDTO, ApplicationRole>()
+                .ForMember(x => x.Name, y => y.MapFrom(p => p.RoleName));
 
             // Property & Address
             CreateMap<AddPropertyRequestDTO, Property>();
@@ -84,6 +89,14 @@ namespace hotelier_core_app.Service.AutoMapper
                 .ForMember(x => x.GuestName, y => y.Ignore())
                 .ForMember(x => x.GuestEmail, y => y.Ignore())
                 .ForMember(x => x.Tier, y => y.Ignore());
+
+            // Subscription
+            CreateMap<CreateSubscriptionPlanDTO, SubscriptionPlan>();
+            CreateMap<SubscriptionPlan, SubscriptionPlanResponseDTO>();
+
+            // PolicyGroup / Permission
+            CreateMap<PolicyGroup, GetPolicyGroupResponseDTO>();
+            CreateMap<Permission, PermissionDTO>();
 
             // Audit Log
             CreateMap<AuditLog, AuditLogResponseDTO>();

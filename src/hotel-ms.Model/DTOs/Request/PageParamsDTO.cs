@@ -15,6 +15,12 @@
         /// Gets or sets the current page number.
         /// </summary>
         public int PageNumber { get; set; }
+
+        /// <summary>
+        /// Optional tenant filter — used by the master admin to scope results to a specific tenant.
+        /// Regular users are always scoped to their own tenant via JWT.
+        /// </summary>
+        public long? TenantId { get; set; }
     }
 
 }

@@ -39,7 +39,6 @@ namespace hotelier_core_app.API.Controllers
         [ProducesResponseType((int)HttpStatusCode.BadRequest, Type = typeof(ValidationResultModel))]
         public async Task<IActionResult> ActivateUser(ActivateUserRequestDTO model)
         {
-
             AuditLog auditLog = new AuditLog
             {
                 Action = UserAction.ActivateUser,
@@ -50,7 +49,7 @@ namespace hotelier_core_app.API.Controllers
                 PerformedAgainst = model.Email,
                 MacAddress = _tokenHelper.GetMacAddress(Request)
             };
-            BaseResponse response = await _userService.ActivateUser(model, auditLog);
+            BaseResponse response = await _userService.ActivateUser(model, auditLog, _tokenHelper.GetTenantId(Request));
             return Ok(response);
         }
 
@@ -100,7 +99,6 @@ namespace hotelier_core_app.API.Controllers
         [ProducesResponseType((int)HttpStatusCode.BadRequest, Type = typeof(ValidationResultModel))]
         public async Task<IActionResult> DeactivateUser(DeactivateUserRequestDTO model)
         {
-
             AuditLog auditLog = new AuditLog
             {
                 Action = UserAction.DeactivateUser,
@@ -111,7 +109,7 @@ namespace hotelier_core_app.API.Controllers
                 PerformedAgainst = model.Email,
                 MacAddress = _tokenHelper.GetMacAddress(Request)
             };
-            BaseResponse response = await _userService.DeactivateUser(model, auditLog);
+            BaseResponse response = await _userService.DeactivateUser(model, auditLog, _tokenHelper.GetTenantId(Request));
             return Ok(response);
         }
 
@@ -217,7 +215,7 @@ namespace hotelier_core_app.API.Controllers
                 IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",
                 MacAddress = _tokenHelper.GetMacAddress(Request)
             };
-            var response = await _userService.UpdateUserDetail(model, auditLog);
+            var response = await _userService.UpdateUserDetail(model, auditLog, _tokenHelper.GetTenantId(Request));
             return Ok(response);
         }
 
@@ -238,7 +236,7 @@ namespace hotelier_core_app.API.Controllers
                 MacAddress = _tokenHelper.GetMacAddress(Request)
             };
 
-            var response = await _userService.ReassignRole(model, auditLog);
+            var response = await _userService.ReassignRole(model, auditLog, _tokenHelper.GetTenantId(Request));
             return Ok(response);
         }
 
@@ -258,7 +256,7 @@ namespace hotelier_core_app.API.Controllers
                 IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",
                 MacAddress = _tokenHelper.GetMacAddress(Request)
             };
-            var response = await _userService.AdminChangePasswordAsync(model, auditLog);
+            var response = await _userService.AdminChangePasswordAsync(model, auditLog, _tokenHelper.GetTenantId(Request));
             return Ok(response);
         }
 
@@ -278,7 +276,7 @@ namespace hotelier_core_app.API.Controllers
                 IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",
                 MacAddress = _tokenHelper.GetMacAddress(Request)
             };
-            var response = await _userService.DeleteUserAsync(model, auditLog);
+            var response = await _userService.DeleteUserAsync(model, auditLog, _tokenHelper.GetTenantId(Request));
             return Ok(response);
         }
 
@@ -298,7 +296,7 @@ namespace hotelier_core_app.API.Controllers
                 IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",
                 MacAddress = _tokenHelper.GetMacAddress(Request)
             };
-            var response = await _userService.ChangeUserShiftAsync(model, auditLog);
+            var response = await _userService.ChangeUserShiftAsync(model, auditLog, _tokenHelper.GetTenantId(Request));
             return Ok(response);
         }
 
@@ -317,7 +315,8 @@ namespace hotelier_core_app.API.Controllers
         public async Task<IActionResult> GetUsers(PageParamsDTO model)
         {
             var callerTenantId = _tokenHelper.GetTenantId(Request);
-            var response = await _userService.GetUsers(model, callerTenantId);
+            var callerEmail = _tokenHelper.GetUserEmail(Request);
+            var response = await _userService.GetUsers(model, callerTenantId, callerEmail);
             return Ok(response);
         }
 

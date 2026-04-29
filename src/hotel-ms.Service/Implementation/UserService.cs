@@ -72,59 +72,82 @@ namespace hotelier_core_app.Service.Implementation
             _moduleService = moduleService;
         }
 
-        public async Task<BaseResponse> ActivateUser(ActivateUserRequestDTO model, AuditLog auditLog)
-        /// <summary>
-        /// Activates a user and assigns a role.
-        /// </summary>
-        /// <param name="model">Activation request details.</param>
-        /// <param name="auditLog">Audit log information for the operation.</param>
-        /// <returns>Returns a success response if activated, otherwise failure.</returns>
+        public async Task<BaseResponse> ActivateUser(ActivateUserRequestDTO model, AuditLog auditLog, long? callerTenantId)
         {
             var user = await _userManager.FindByEmailAsync(model.Email);
             if (user == null)
-            {
                 return BaseResponse.Failure(ResponseMessages.UserDoesNotExist, ResponseStatusCode.UserDoesNotExist);
+
+            // Tenant isolation: caller must own this user (master admin bypasses)
+            if (auditLog.PerformerEmail != MASTER_ADMIN_EMAIL
+                && callerTenantId.HasValue
+                && user.TenantId != callerTenantId)
+                return BaseResponse.Failure("Access denied. User belongs to a different tenant.", ResponseStatusCode.OperationFailed);
+
+            // Issue 2: enforce one SuperAdmin per tenant
+            if (string.Equals(model.Role.ToString(), "SuperAdmin", StringComparison.OrdinalIgnoreCase))
+            {
+                var targetTenantId = user.TenantId;
+                var others = await _userManager.Users
+                    .Where(u => u.TenantId == targetTenantId && !u.IsDeleted && u.Id != user.Id)
+                    .ToListAsync();
+                foreach (var u in others)
+                {
+                    if ((await _userManager.GetRolesAsync(u)).Contains("SuperAdmin"))
+                        return BaseResponse.Failure("A SuperAdmin already exists for this tenant. Only one SuperAdmin is allowed per tenant.", ResponseStatusCode.OperationFailed);
+                }
             }
 
             user.IsActive = true;
-            string userStatus = user.Status;
+            string userStatus = user.Status ?? string.Empty;
             user.Status = UserStatus.Active.ToString();
             user.IsDeleted = false;
 
             IdentityResult result = await _userManager.UpdateAsync(user);
-            if (result.Succeeded)
+            if (!result.Succeeded)
+                return BaseResponse.Failure(ResponseMessages.OperationFailed, ResponseStatusCode.OperationFailed);
+
+            var roleName = model.Role.ToString();
+            if (!await _roleManager.RoleExistsAsync(roleName))
+                return BaseResponse.Failure($"Role '{roleName}' does not exist.", ResponseStatusCode.RoleNotExist);
+
+            try
             {
-                if (!await _roleManager.RoleExistsAsync(model.Role.ToString()))
+                var role = await _roleManager.FindByNameAsync(roleName);
+                if (role == null)
+                    return BaseResponse.Failure($"Role '{roleName}' not found.", ResponseStatusCode.RoleNotExist);
+
+                if (!user.TenantId.HasValue)
+                    return BaseResponse.Failure("User has no tenant assigned.", ResponseStatusCode.OperationFailed);
+
+                // Remove existing roles first, then add the new one via repository (avoids TenantId=0 on AddToRoleAsync)
+                var currentRoles = await _userManager.GetRolesAsync(user);
+                if (currentRoles.Any())
                 {
-                    ApplicationRole newRole = _mapper.Map<ApplicationRole>(model);
-                    newRole.CreationDate = DateTime.UtcNow;
-                    newRole.CreatedBy = auditLog.PerformedBy;
-                    await _roleManager.CreateAsync(newRole);
+                    var removeResult = await _userManager.RemoveFromRolesAsync(user, currentRoles);
+                    if (!removeResult.Succeeded)
+                        return BaseResponse.Failure(ResponseMessages.RoleReassignmentError, ResponseStatusCode.GeneralError);
                 }
 
-                try
+                await _userRoleCommandRepository.AddAsync(new ApplicationUserRole
                 {
-                    var roleAssignmentResult = await _userManager.AddToRoleAsync(user, model.Role.ToString());
-                    if (!roleAssignmentResult.Succeeded)
-                    {
-                        throw new Exception(HandleIdentityErrors(roleAssignmentResult).Message);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    user.Status = userStatus;
-                    user.IsDeleted = true;
-                    user.IsActive = false;
-                    await _userManager.UpdateAsync(user);
-                    return BaseResponse.Failure(ex.Message, ResponseStatusCode.OperationFailed);
-                }
-
-                _auditLogCommandRepository.Add(auditLog);
-
-                return BaseResponse.Success(ResponseMessages.UserActivated, ResponseStatusCode.UserActivated);
+                    UserId = user.Id,
+                    RoleId = role.Id,
+                    TenantId = user.TenantId.Value
+                });
+                await _userRoleCommandRepository.SaveAsync();
+            }
+            catch (Exception ex)
+            {
+                user.Status = userStatus;
+                user.IsDeleted = true;
+                user.IsActive = false;
+                await _userManager.UpdateAsync(user);
+                return BaseResponse.Failure(ex.Message, ResponseStatusCode.OperationFailed);
             }
 
-            return BaseResponse.Failure(ResponseMessages.OperationFailed, ResponseStatusCode.OperationFailed);
+            _auditLogCommandRepository.Add(auditLog);
+            return BaseResponse.Success(ResponseMessages.UserActivated, ResponseStatusCode.UserActivated);
         }
 
         public async Task<BaseResponse> CreateUser(CreateUserRequestDTO model, AuditLog auditLog)
@@ -194,29 +217,26 @@ namespace hotelier_core_app.Service.Implementation
             return BaseResponse.Success(ResponseMessages.UserCreated, ResponseStatusCode.UserCreated);
         }
 
-        public async Task<BaseResponse> DeactivateUser(DeactivateUserRequestDTO model, AuditLog auditLog)
-        /// <summary>
-        /// Deactivates a user and updates their status.
-        /// </summary>
-        /// <param name="model">Deactivation request details.</param>
-        /// <param name="auditLog">Audit log information for the operation.</param>
-        /// <returns>Returns a success response if deactivated, otherwise failure.</returns>
+        public async Task<BaseResponse> DeactivateUser(DeactivateUserRequestDTO model, AuditLog auditLog, long? callerTenantId)
         {
             var user = await _userManager.FindByEmailAsync(model.Email);
             if (user == null)
-            {
                 return BaseResponse.Failure(ResponseMessages.UserDoesNotExist, ResponseStatusCode.UserDoesNotExist);
-            }
+
+            // Tenant isolation
+            if (auditLog.PerformerEmail != MASTER_ADMIN_EMAIL
+                && callerTenantId.HasValue
+                && user.TenantId != callerTenantId)
+                return BaseResponse.Failure("Access denied. User belongs to a different tenant.", ResponseStatusCode.OperationFailed);
 
             if (model.Status.Equals(UserStatus.Active))
-            {
                 return BaseResponse.Failure();
-            }
 
             user.IsActive = false;
             user.Status = model.Status.ToString();
             user.LastModifiedDate = DateTime.UtcNow;
-            if (model.Status == UserStatus.Sacked || model.Status == UserStatus.Resigned) user.IsDeleted = true;
+            if (model.Status == UserStatus.Sacked || model.Status == UserStatus.Resigned)
+                user.IsDeleted = true;
 
             IdentityResult result = await _userManager.UpdateAsync(user);
             if (result.Succeeded)
@@ -254,25 +274,36 @@ namespace hotelier_core_app.Service.Implementation
             return BaseResponse<ApplicationUserDTO>.Success(userResponse);
         }
 
-        public async Task<PageBaseResponse<List<ApplicationUserDTO>>> GetUsers(PageParamsDTO model, long? callerTenantId)
+        public async Task<PageBaseResponse<List<ApplicationUserDTO>>> GetUsers(PageParamsDTO model, long? callerTenantId, string callerEmail)
         {
+            bool isMasterAdmin = string.Equals(callerEmail, MASTER_ADMIN_EMAIL, StringComparison.OrdinalIgnoreCase);
+
+            // Master admin can filter by an explicit tenantId param or see all tenants.
+            // Regular users are always scoped to their own tenant.
+            long? effectiveTenantId = isMasterAdmin ? model.TenantId : callerTenantId;
+
             var usersQuery = _userManager.Users
-                .Where(u => !u.IsDeleted
-                    && u.TenantId == callerTenantId
-                    && u.Email != MASTER_ADMIN_EMAIL);
+                .Where(u => !u.IsDeleted && u.Email != MASTER_ADMIN_EMAIL);
+
+            if (effectiveTenantId.HasValue)
+                usersQuery = usersQuery.Where(u => u.TenantId == effectiveTenantId);
+            else if (!isMasterAdmin)
+                // Non-master-admin without a tenant ID should see nothing
+                return PageBaseResponse<List<ApplicationUserDTO>>.Failure(new List<ApplicationUserDTO>(),
+                    ResponseMessages.UsersFetchFailed, 0, ResponseStatusCode.UsersFetchFailed);
+
             var totalUsers = await usersQuery.CountAsync();
             if (totalUsers == 0)
             {
                 return PageBaseResponse<List<ApplicationUserDTO>>.Failure(new List<ApplicationUserDTO>(),
                     ResponseMessages.UsersFetchFailed, 0, ResponseStatusCode.UsersFetchFailed);
             }
-            
+
             var users = await usersQuery
                 .Skip((model.PageNumber - 1) * model.PageSize)
                 .Take(model.PageSize)
                 .ToListAsync();
 
-            // Populate roles for each user (Identity stores roles separately)
             var usersResponse = new List<ApplicationUserDTO>();
             foreach (var u in users)
             {
@@ -324,13 +355,18 @@ namespace hotelier_core_app.Service.Implementation
             }
 
             var userRole = await _userManager.GetRolesAsync(user);
+
+            // Issue 4/5: master admin has no tenant boundary — omit TenantId from their JWT
+            // so they can operate across all tenants without being scoped to any one.
+            bool isMasterAdmin = string.Equals(user.Email, MASTER_ADMIN_EMAIL, StringComparison.OrdinalIgnoreCase);
+
             LoginResponseDTO data = new LoginResponseDTO
             {
                 Email = user.Email ?? string.Empty,
                 FullName = user.FullName,
                 Picture = user.Picture ?? string.Empty,
                 Roles = userRole.ToList(),
-                TenantId = user.TenantId,
+                TenantId = isMasterAdmin ? null : user.TenantId,
                 MustChangePassword = user.MustChangePassword
             };
 
@@ -340,76 +376,73 @@ namespace hotelier_core_app.Service.Implementation
                 ResponseStatusCode.LoginSuccessful), refreshToken);
         }
 
-        public async Task<BaseResponse> ReassignRole(EditUserRolesRequestDTO model, AuditLog auditLog)
-        /// <summary>
-        /// Reassigns roles to a user.
-        /// </summary>
-        /// <param name="model">Role reassignment details.</param>
-        /// <param name="auditLog">Audit log information for the operation.</param>
-        /// <returns>Returns a success response if reassigned, otherwise failure.</returns>
+        public async Task<BaseResponse> ReassignRole(EditUserRolesRequestDTO model, AuditLog auditLog, long? callerTenantId)
         {
             if (string.IsNullOrEmpty(model.Email))
-            {
                 return BaseResponse.Failure(ResponseMessages.UserDoesNotExist, ResponseStatusCode.UserDoesNotExist);
-            }
 
             ApplicationUser? user = await _userManager.FindByEmailAsync(model.Email);
+            if (user == null)
+                return BaseResponse.Failure(ResponseMessages.UserDoesNotExist, ResponseStatusCode.UserDoesNotExist);
 
-            if (user != null)
-            {
-                if (user.IsActive)
-                {
-                    if (model.Roles != null)
-                    {
-                        foreach (var role in model.Roles)
-                        {
-                            if (!await _roleManager.RoleExistsAsync(role))
-                                return BaseResponse.Failure(ResponseMessages.RoleNotExist, ResponseStatusCode.RoleNotExist);
-                        }
+            // Issue 3: tenant isolation
+            if (auditLog.PerformerEmail != MASTER_ADMIN_EMAIL
+                && callerTenantId.HasValue
+                && user.TenantId != callerTenantId)
+                return BaseResponse.Failure("Access denied. User belongs to a different tenant.", ResponseStatusCode.OperationFailed);
 
-                        // Enforce one SuperAdmin per tenant
-                        if (model.Roles.Contains("SuperAdmin", StringComparer.OrdinalIgnoreCase))
-                        {
-                            var others = await _userManager.Users
-                                .Where(u => u.TenantId == user.TenantId && !u.IsDeleted && u.Id != user.Id)
-                                .ToListAsync();
-                            foreach (var u in others)
-                            {
-                                var roles = await _userManager.GetRolesAsync(u);
-                                if (roles.Contains("SuperAdmin"))
-                                    return BaseResponse.Failure("A SuperAdmin already exists for this tenant. Only one SuperAdmin is allowed per tenant.", ResponseStatusCode.OperationFailed);
-                            }
-                        }
-                    }
-
-                    var currentRoles = await _userManager.GetRolesAsync(user);
-                    var removeUserFromRole = await _userManager.RemoveFromRolesAsync(user, currentRoles);
-                    if (!removeUserFromRole.Succeeded)
-                        return BaseResponse.Failure(ResponseMessages.RoleReassignmentError, ResponseStatusCode.GeneralError);
-
-                    foreach (var roleName in model.Roles ?? new List<string>())
-                    {
-                        var role = await _roleManager.FindByNameAsync(roleName);
-                        if (role != null && user.TenantId.HasValue)
-                        {
-                            await _userRoleCommandRepository.AddAsync(new ApplicationUserRole
-                            {
-                                UserId = user.Id,
-                                RoleId = role.Id,
-                                TenantId = user.TenantId.Value
-                            });
-                        }
-                    }
-                    await _userRoleCommandRepository.SaveAsync();
-
-                    await _auditLogCommandRepository.AddAsync(auditLog);
-                    await _auditLogCommandRepository.SaveAsync();
-
-                    return BaseResponse.Success(ResponseMessages.RoleUpdated);
-                }
+            if (!user.IsActive)
                 return BaseResponse.Failure(ResponseMessages.UserInactive);
+
+            if (model.Roles != null)
+            {
+                foreach (var role in model.Roles)
+                {
+                    if (!await _roleManager.RoleExistsAsync(role))
+                        return BaseResponse.Failure(ResponseMessages.RoleNotExist, ResponseStatusCode.RoleNotExist);
+                }
+
+                // Issue 2: enforce one SuperAdmin per tenant
+                if (model.Roles.Contains("SuperAdmin", StringComparer.OrdinalIgnoreCase))
+                {
+                    var others = await _userManager.Users
+                        .Where(u => u.TenantId == user.TenantId && !u.IsDeleted && u.Id != user.Id)
+                        .ToListAsync();
+                    foreach (var u in others)
+                    {
+                        if ((await _userManager.GetRolesAsync(u)).Contains("SuperAdmin"))
+                            return BaseResponse.Failure("A SuperAdmin already exists for this tenant. Only one SuperAdmin is allowed per tenant.", ResponseStatusCode.OperationFailed);
+                    }
+                }
             }
-            return BaseResponse.Failure(ResponseMessages.UserDoesNotExist);
+
+            var currentRoles = await _userManager.GetRolesAsync(user);
+            if (currentRoles.Any())
+            {
+                var removeResult = await _userManager.RemoveFromRolesAsync(user, currentRoles);
+                if (!removeResult.Succeeded)
+                    return BaseResponse.Failure(ResponseMessages.RoleReassignmentError, ResponseStatusCode.GeneralError);
+            }
+
+            foreach (var roleName in model.Roles ?? new List<string>())
+            {
+                var role = await _roleManager.FindByNameAsync(roleName);
+                if (role != null && user.TenantId.HasValue)
+                {
+                    await _userRoleCommandRepository.AddAsync(new ApplicationUserRole
+                    {
+                        UserId = user.Id,
+                        RoleId = role.Id,
+                        TenantId = user.TenantId.Value
+                    });
+                }
+            }
+            await _userRoleCommandRepository.SaveAsync();
+
+            await _auditLogCommandRepository.AddAsync(auditLog);
+            await _auditLogCommandRepository.SaveAsync();
+
+            return BaseResponse.Success(ResponseMessages.RoleUpdated);
         }
 
         public async Task<(BaseResponse<RefreshTokenResponseDTO>, string)> RefreshToken(RefreshTokenRequestDTO model, AuditLog auditLog)
@@ -446,7 +479,7 @@ namespace hotelier_core_app.Service.Implementation
                 ResponseMessages.CantVerifyRefreshToken, ResponseStatusCode.CantVerifyRefreshToken), string.Empty);
         }
 
-        public async Task<BaseResponse> UpdateUserDetail(EditUserDetailRequestDTO model, AuditLog auditLog)
+        public async Task<BaseResponse> UpdateUserDetail(EditUserDetailRequestDTO model, AuditLog auditLog, long? callerTenantId)
         {
             if (string.IsNullOrEmpty(model.Email))
                 return BaseResponse.Failure(ResponseMessages.UserDoesNotExist, ResponseStatusCode.UserDoesNotExist);
@@ -455,17 +488,25 @@ namespace hotelier_core_app.Service.Implementation
             if (user == null)
                 return BaseResponse.Failure(ResponseMessages.UserDoesNotExist, ResponseStatusCode.UserDoesNotExist);
 
+            // Issue 3: tenant isolation — callers may only edit users in their own tenant
+            if (auditLog.PerformerEmail != MASTER_ADMIN_EMAIL
+                && callerTenantId.HasValue
+                && user.TenantId != callerTenantId)
+                return BaseResponse.Failure("Access denied. User belongs to a different tenant.", ResponseStatusCode.OperationFailed);
+
             if (!user.IsActive)
                 return BaseResponse.Failure(ResponseMessages.UserInactive, ResponseStatusCode.UserInactive);
 
             user.FullName = model.FullName ?? user.FullName;
             user.LastModifiedDate = DateTime.UtcNow;
             user.ModifiedBy = auditLog.PerformedBy;
-            await _userManager.UpdateAsync(user);
+            var updateResult = await _userManager.UpdateAsync(user);
+            if (!updateResult.Succeeded)
+                return HandleIdentityErrors(updateResult);
 
             if (model.Roles != null && model.Roles.Any())
             {
-                // Enforce one SuperAdmin per tenant
+                // Issue 2: enforce one SuperAdmin per tenant
                 if (model.Roles.Contains("SuperAdmin", StringComparer.OrdinalIgnoreCase))
                 {
                     var existingSuperAdmin = await _userManager.Users
@@ -473,26 +514,32 @@ namespace hotelier_core_app.Service.Implementation
                         .ToListAsync();
                     foreach (var u in existingSuperAdmin)
                     {
-                        var roles = await _userManager.GetRolesAsync(u);
-                        if (roles.Contains("SuperAdmin"))
+                        if ((await _userManager.GetRolesAsync(u)).Contains("SuperAdmin"))
                             return BaseResponse.Failure("A SuperAdmin already exists for this tenant. Only one SuperAdmin is allowed per tenant.", ResponseStatusCode.OperationFailed);
                     }
                 }
 
-                var currentRoles = await _userManager.GetRolesAsync(user);
-                await _userManager.RemoveFromRolesAsync(user, currentRoles);
-
+                // Validate all requested roles exist before making any changes
                 foreach (var roleName in model.Roles)
                 {
                     if (!await _roleManager.RoleExistsAsync(roleName))
-                    {
-                        await _roleManager.CreateAsync(new ApplicationRole
-                        {
-                            Name = roleName,
-                            CreationDate = DateTime.UtcNow,
-                            CreatedBy = auditLog.PerformedBy ?? HOTELIER_ADMIN
-                        });
-                    }
+                        return BaseResponse.Failure($"Role '{roleName}' does not exist.", ResponseStatusCode.RoleNotExist);
+                }
+
+                // Issue 1 fix: remove current roles, check the result, then add new ones.
+                // RemoveFromRolesAsync internally calls SaveChangesAsync (for SecurityStamp update),
+                // so we use a separate SaveAsync for the new role inserts to avoid EF tracking
+                // conflicts on the same (UserId, RoleId) composite key.
+                var currentRoles = await _userManager.GetRolesAsync(user);
+                if (currentRoles.Any())
+                {
+                    var removeResult = await _userManager.RemoveFromRolesAsync(user, currentRoles);
+                    if (!removeResult.Succeeded)
+                        return BaseResponse.Failure(ResponseMessages.RoleReassignmentError, ResponseStatusCode.GeneralError);
+                }
+
+                foreach (var roleName in model.Roles)
+                {
                     var role = await _roleManager.FindByNameAsync(roleName);
                     if (role != null && user.TenantId.HasValue)
                     {
@@ -589,11 +636,17 @@ namespace hotelier_core_app.Service.Implementation
             return BaseResponse.Success("Password reset successfully. You can now sign in with your new password.", ResponseStatusCode.OperationSuccessful);
         }
 
-        public async Task<BaseResponse> AdminChangePasswordAsync(AdminChangePasswordRequestDTO model, AuditLog auditLog)
+        public async Task<BaseResponse> AdminChangePasswordAsync(AdminChangePasswordRequestDTO model, AuditLog auditLog, long? callerTenantId)
         {
             var user = await _userManager.FindByEmailAsync(model.Email);
             if (user == null || user.IsDeleted)
                 return BaseResponse.Failure(ResponseMessages.UserDoesNotExist, ResponseStatusCode.UserDoesNotExist);
+
+            // Tenant isolation
+            if (auditLog.PerformerEmail != MASTER_ADMIN_EMAIL
+                && callerTenantId.HasValue
+                && user.TenantId != callerTenantId)
+                return BaseResponse.Failure("Access denied. User belongs to a different tenant.", ResponseStatusCode.OperationFailed);
 
             var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
             var result = await _userManager.ResetPasswordAsync(user, resetToken, model.NewPassword);
@@ -627,11 +680,17 @@ namespace hotelier_core_app.Service.Implementation
             return BaseResponse.Success("Password changed successfully. You can now access your workspace.", ResponseStatusCode.OperationSuccessful);
         }
 
-        public async Task<BaseResponse> DeleteUserAsync(DeleteUserRequestDTO model, AuditLog auditLog)
+        public async Task<BaseResponse> DeleteUserAsync(DeleteUserRequestDTO model, AuditLog auditLog, long? callerTenantId)
         {
             var user = await _userManager.FindByEmailAsync(model.Email);
             if (user == null || user.IsDeleted)
                 return BaseResponse.Failure(ResponseMessages.UserDoesNotExist, ResponseStatusCode.UserDoesNotExist);
+
+            // Tenant isolation
+            if (auditLog.PerformerEmail != MASTER_ADMIN_EMAIL
+                && callerTenantId.HasValue
+                && user.TenantId != callerTenantId)
+                return BaseResponse.Failure("Access denied. User belongs to a different tenant.", ResponseStatusCode.OperationFailed);
 
             user.IsDeleted = true;
             user.IsActive = false;
@@ -648,11 +707,17 @@ namespace hotelier_core_app.Service.Implementation
             return BaseResponse.Success("User deleted successfully.", ResponseStatusCode.OperationSuccessful);
         }
 
-        public async Task<BaseResponse> ChangeUserShiftAsync(ChangeUserShiftRequestDTO model, AuditLog auditLog)
+        public async Task<BaseResponse> ChangeUserShiftAsync(ChangeUserShiftRequestDTO model, AuditLog auditLog, long? callerTenantId)
         {
             var user = await _userManager.FindByEmailAsync(model.Email);
             if (user == null || user.IsDeleted)
                 return BaseResponse.Failure(ResponseMessages.UserDoesNotExist, ResponseStatusCode.UserDoesNotExist);
+
+            // Tenant isolation
+            if (auditLog.PerformerEmail != MASTER_ADMIN_EMAIL
+                && callerTenantId.HasValue
+                && user.TenantId != callerTenantId)
+                return BaseResponse.Failure("Access denied. User belongs to a different tenant.", ResponseStatusCode.OperationFailed);
 
             user.Shift = model.Shift;
             user.Department = model.Department;

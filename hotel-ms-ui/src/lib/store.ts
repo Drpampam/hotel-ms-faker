@@ -21,7 +21,7 @@ export const useAuthStore = create<AuthStore>()(
     (set) => ({
       user: null,
       token: null,
-      tenantId: 1,
+      tenantId: 0,
       isAuthenticated: false,
       isLoading: false,
       setAuth: (user, token) => {
@@ -32,19 +32,20 @@ export const useAuthStore = create<AuthStore>()(
         set({
           user,
           token,
-          tenantId: user?.tenantId ?? 1,
+          // 0 = no tenant (master admin) — axios interceptor skips X-Tenant-Id when <= 0
+          tenantId: user?.tenantId ?? 0,
           isAuthenticated: true,
           isLoading: false,
         });
       },
-      setUser: (user) => set({ user, tenantId: user.tenantId ?? 1 }),
+      setUser: (user) => set({ user, tenantId: user.tenantId ?? 0 }),
       setLoading: (isLoading) => set({ isLoading }),
       logout: () => {
         localStorage.removeItem('hotel_ms_token');
         localStorage.removeItem('hotel_ms_user');
         localStorage.removeItem('hotel_ms_refresh_token');
         localStorage.removeItem('hotel-ms-auth');
-        set({ user: null, token: null, tenantId: 1, isAuthenticated: false, isLoading: false });
+        set({ user: null, token: null, tenantId: 0, isAuthenticated: false, isLoading: false });
       },
     }),
     {

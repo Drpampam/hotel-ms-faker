@@ -7,8 +7,8 @@ namespace hotelier_core_app.API.Middleware
     {
         private readonly RequestDelegate _next;
 
-        // These paths always use the public schema — they deal with users/auth
-        // which are global, not per-tenant.
+        // These paths always use the public schema — users, roles, and UserRoles
+        // all live in the public schema; tenant schemas are for hotel business data only.
         private static readonly string[] _publicSchemaPaths = new[]
         {
             "/api/v1/user/login",
@@ -17,7 +17,18 @@ namespace hotelier_core_app.API.Middleware
             "/api/v1/user/reset-password",
             "/api/v1/user/create-user",
             "/api/v1/user/get-all-users",
+            "/api/v1/user/get-users",
             "/api/v1/user/get-user-by-email",
+            "/api/v1/user/update-user",
+            "/api/v1/user/reassign-role",
+            "/api/v1/user/activate-user",
+            "/api/v1/user/deactivate-user",
+            "/api/v1/user/admin-change-password",
+            "/api/v1/user/change-temp-password",
+            "/api/v1/user/change-shift",
+            "/api/v1/user/delete-user",
+            "/api/v1/user/get-assigned-modules",
+            "/api/v1/role",
             "/api/v1/activation",
             "/api/v1/subscription",
             "/healthz",

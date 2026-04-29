@@ -44,10 +44,11 @@ function mapUser(r: {
 }
 
 export const userService = {
-  async getAll(params?: { pageNumber?: number; pageSize?: number }): Promise<User[]> {
+  async getAll(params?: { pageNumber?: number; pageSize?: number; tenantId?: number }): Promise<User[]> {
     const response = await api.post<PageApiResponse<unknown[]>>('/api/v1/User/get-users', {
       pageNumber: params?.pageNumber ?? 1,
       pageSize: params?.pageSize ?? 100,
+      tenantId: params?.tenantId ?? null,
     });
     const raw = response.data?.data;
     if (!Array.isArray(raw)) return [];

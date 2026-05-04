@@ -56,10 +56,26 @@ namespace hotelier_core_app.API.Middleware
                 return;
             }
 
+            var now = DateTime.UtcNow;
+            var isSuspended = tenant.IsSuspended || (tenant.SuspendedUntil.HasValue && tenant.SuspendedUntil.Value > now);
+            if (isSuspended)
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                context.Response.ContentType = "application/json";
+                var payload = JsonSerializer.Serialize(new
+                {
+                    status = false,
+                    message = "This account has been suspended. Please contact support.",
+                    suspendedUntil = tenant.SuspendedUntil
+                });
+                await context.Response.WriteAsync(payload);
+                return;
+            }
+
             var isUnlimited = tenant.PlanType == Core.Enums.PlanType.Unlimited;
             var isExpired = !isUnlimited
                 && tenant.SubscriptionEndDate.HasValue
-                && tenant.SubscriptionEndDate.Value < DateTime.UtcNow;
+                && tenant.SubscriptionEndDate.Value < now;
 
             if (isExpired)
             {

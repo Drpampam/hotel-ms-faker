@@ -35,6 +35,10 @@ export interface TenantSummary {
   expiresAt: string | null;
   daysRemaining: number | null;
   createdAt: string;
+  adminRoles: string[];
+  isAdminActive: boolean;
+  isSuspended: boolean;
+  suspendedUntil: string | null;
 }
 
 export interface GenerateCodeResult {
@@ -80,6 +84,18 @@ const adminService = {
 
   async resetPassword(email: string, newPassword: string): Promise<void> {
     await api.put('/api/v1/user/admin-change-password', { email, newPassword });
+  },
+
+  async reassignRole(email: string, roles: string[]): Promise<void> {
+    await api.put('/api/v1/user/reassign-role', { email, roles });
+  },
+
+  async suspendTenant(tenantId: number, suspendedUntil: string | null): Promise<void> {
+    await api.put(`/api/v1/activation/suspend-tenant/${tenantId}`, { suspendedUntil });
+  },
+
+  async unsuspendTenant(tenantId: number): Promise<void> {
+    await api.put(`/api/v1/activation/unsuspend-tenant/${tenantId}`, {});
   },
 };
 

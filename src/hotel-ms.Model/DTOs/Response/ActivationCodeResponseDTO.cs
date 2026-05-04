@@ -74,5 +74,9 @@ namespace hotelier_core_app.Model.DTOs.Response
         public DateTime? ExpiresAt { get; set; }
         public int? DaysRemaining { get; set; }
         public DateTime CreatedAt { get; set; }
+        public string[] AdminRoles { get; set; } = Array.Empty<string>();
+        public bool IsAdminActive { get; set; }
+        public bool IsSuspended { get; set; }
+        public DateTime? SuspendedUntil { get; set; }
     }
 }

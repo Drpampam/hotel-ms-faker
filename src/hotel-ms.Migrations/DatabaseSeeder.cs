@@ -61,7 +61,9 @@ namespace hotelier_core_app.Migrations
                 CREATE UNIQUE INDEX IF NOT EXISTS ""IX_ActivationCode_CodeHash""
                     ON ""ActivationCode"" (""CodeHash"");
 
-                ALTER TABLE ""Tenant"" ADD COLUMN IF NOT EXISTS ""PlanType"" integer;
+                ALTER TABLE ""Tenant"" ADD COLUMN IF NOT EXISTS ""PlanType""       integer;
+                ALTER TABLE ""Tenant"" ADD COLUMN IF NOT EXISTS ""IsSuspended""   boolean NOT NULL DEFAULT false;
+                ALTER TABLE ""Tenant"" ADD COLUMN IF NOT EXISTS ""SuspendedUntil"" timestamptz;
             ");
 
             // ── Permissions ──────────────────────────────────────────────────────

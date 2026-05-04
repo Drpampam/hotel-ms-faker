@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Copy, Check, KeyRound, RefreshCw, Plus, X, Hotel, LogOut, ChevronRight, Calendar, Mail, Tag, ShieldCheck, LockKeyhole } from 'lucide-react';
+import { Copy, Check, KeyRound, RefreshCw, Plus, X, Hotel, LogOut, ChevronRight, Calendar, Mail, Tag, ShieldCheck, LockKeyhole, UserCog, Ban, RotateCcw } from 'lucide-react';
 import { useAdminStore } from '../lib/store';
 import adminService, { type ProvisionResult, type TenantSummary, type GenerateCodeResult } from '../services/admin.service';
 import { cn } from '../lib/utils';
@@ -79,6 +79,24 @@ export function DashboardPage() {
   const [isRenewing, setIsRenewing] = useState(false);
   const [renewError, setRenewError] = useState('');
 
+  // Role management state
+  const [roleTarget, setRoleTarget] = useState<TenantSummary | null>(null);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [isReassigning, setIsReassigning] = useState(false);
+  const [roleError, setRoleError] = useState('');
+  const [roleDone, setRoleDone] = useState(false);
+
+  // Suspend modal state
+  const [suspendTarget, setSuspendTarget] = useState<TenantSummary | null>(null);
+  const [suspendMode, setSuspendMode] = useState<'timed' | 'permanent'>('timed');
+  const [suspendUntil, setSuspendUntil] = useState('');
+  const [isSuspending, setIsSuspending] = useState(false);
+  const [suspendError, setSuspendError] = useState('');
+
+  // Unsuspend state
+  const [isUnsuspending, setIsUnsuspending] = useState(false);
+  const [unsuspendError, setUnsuspendError] = useState('');
+
   // Reset password modal state
   const [resetTarget, setResetTarget] = useState<TenantSummary | null>(null);
   const [newPwd, setNewPwd] = useState('');
@@ -157,6 +175,88 @@ export function DashboardPage() {
     setSelectedTenant(null);
     setGenCodeResult(null);
     setGenCodeError('');
+  };
+
+  const AVAILABLE_ROLES = ['SuperAdmin', 'Admin', 'FrontDesk', 'Housekeeping', 'Guest', 'Developer'];
+
+  const openRoleManager = (t: TenantSummary) => {
+    setRoleTarget(t);
+    setSelectedRoles(t.adminRoles ?? []);
+    setRoleError('');
+    setRoleDone(false);
+  };
+
+  const closeRoleManager = () => {
+    setRoleTarget(null);
+    setSelectedRoles([]);
+    setRoleError('');
+    setRoleDone(false);
+  };
+
+  const toggleRole = (role: string) => {
+    setSelectedRoles(prev =>
+      prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
+    );
+    setRoleError('');
+  };
+
+  const handleReassignRole = async () => {
+    if (!roleTarget) return;
+    if (selectedRoles.length === 0) { setRoleError('Select at least one role.'); return; }
+    setRoleError('');
+    setIsReassigning(true);
+    try {
+      await adminService.reassignRole(roleTarget.adminEmail, selectedRoles);
+      setRoleDone(true);
+      fetchTenants();
+    } catch (err) {
+      setRoleError(err instanceof Error ? err.message : 'Failed to update roles.');
+    } finally {
+      setIsReassigning(false);
+    }
+  };
+
+  const openSuspend = (t: TenantSummary) => {
+    setSuspendTarget(t);
+    setSuspendMode('timed');
+    setSuspendUntil('');
+    setSuspendError('');
+  };
+
+  const closeSuspend = () => {
+    setSuspendTarget(null);
+    setSuspendError('');
+  };
+
+  const handleSuspend = async () => {
+    if (!suspendTarget) return;
+    if (suspendMode === 'timed' && !suspendUntil) { setSuspendError('Select a date.'); return; }
+    setSuspendError('');
+    setIsSuspending(true);
+    try {
+      await adminService.suspendTenant(suspendTarget.id, suspendMode === 'timed' ? suspendUntil : null);
+      closeSuspend();
+      fetchTenants();
+      if (selectedTenant?.id === suspendTarget.id) closeDetail();
+    } catch (err) {
+      setSuspendError(err instanceof Error ? err.message : 'Failed to suspend tenant.');
+    } finally {
+      setIsSuspending(false);
+    }
+  };
+
+  const handleUnsuspend = async (t: TenantSummary) => {
+    setUnsuspendError('');
+    setIsUnsuspending(true);
+    try {
+      await adminService.unsuspendTenant(t.id);
+      fetchTenants();
+      if (selectedTenant?.id === t.id) setSelectedTenant(prev => prev ? { ...prev, isSuspended: false, suspendedUntil: null } : null);
+    } catch (err) {
+      setUnsuspendError(err instanceof Error ? err.message : 'Failed to unsuspend tenant.');
+    } finally {
+      setIsUnsuspending(false);
+    }
   };
 
   const openResetPassword = (t: TenantSummary) => {
@@ -496,6 +596,137 @@ export function DashboardPage() {
         </div>
       )}
 
+      {/* Role manager modal */}
+      {roleTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="font-semibold text-slate-900">Manage Roles</h3>
+                <p className="text-sm text-slate-500 mt-0.5">{roleTarget.name || roleTarget.adminEmail}</p>
+              </div>
+              <button onClick={closeRoleManager} className="p-1 text-slate-400 hover:text-slate-600">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {roleDone ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 rounded-xl bg-green-50 border border-green-200 px-4 py-3">
+                  <Check className="h-5 w-5 text-green-600 flex-shrink-0" />
+                  <p className="text-sm text-green-700">Roles updated for <strong>{roleTarget.adminEmail}</strong>.</p>
+                </div>
+                <button onClick={closeRoleManager} className="w-full py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors">Done</button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-slate-600">Select the roles for this tenant's admin account:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {AVAILABLE_ROLES.map(role => (
+                    <button
+                      key={role}
+                      onClick={() => toggleRole(role)}
+                      className={cn(
+                        'flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 text-sm transition-all text-left',
+                        selectedRoles.includes(role)
+                          ? 'border-indigo-600 bg-indigo-50 text-indigo-700 font-medium'
+                          : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                      )}
+                    >
+                      <div className={cn('w-4 h-4 rounded flex items-center justify-center border flex-shrink-0',
+                        selectedRoles.includes(role) ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'
+                      )}>
+                        {selectedRoles.includes(role) && <Check className="h-2.5 w-2.5 text-white" />}
+                      </div>
+                      {role}
+                    </button>
+                  ))}
+                </div>
+                {roleError && <p className="text-sm text-red-600">{roleError}</p>}
+                <div className="flex gap-3">
+                  <button onClick={closeRoleManager} className="flex-1 py-2.5 text-sm text-slate-600 border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors">Cancel</button>
+                  <button
+                    onClick={handleReassignRole}
+                    disabled={isReassigning}
+                    className="flex-1 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 rounded-xl transition-colors"
+                  >
+                    {isReassigning ? 'Saving…' : 'Save Roles'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Suspend modal */}
+      {suspendTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="font-semibold text-slate-900">Suspend Tenant</h3>
+                <p className="text-sm text-slate-500 mt-0.5">{suspendTarget.name || suspendTarget.adminEmail}</p>
+              </div>
+              <button onClick={closeSuspend} className="p-1 text-slate-400 hover:text-slate-600">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setSuspendMode('timed')}
+                  className={cn('px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-all',
+                    suspendMode === 'timed' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                  )}
+                >
+                  Time-based
+                </button>
+                <button
+                  onClick={() => setSuspendMode('permanent')}
+                  className={cn('px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-all',
+                    suspendMode === 'permanent' ? 'border-red-500 bg-red-50 text-red-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                  )}
+                >
+                  Permanent
+                </button>
+              </div>
+
+              {suspendMode === 'timed' ? (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Suspend until</label>
+                  <input
+                    type="date"
+                    value={suspendUntil}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => { setSuspendUntil(e.target.value); setSuspendError(''); }}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <p className="mt-1 text-xs text-slate-500">Access is automatically restored after this date.</p>
+                </div>
+              ) : (
+                <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+                  The tenant will be blocked indefinitely. You can lift the suspension manually at any time.
+                </div>
+              )}
+
+              {suspendError && <p className="text-sm text-red-600">{suspendError}</p>}
+              <div className="flex gap-3">
+                <button onClick={closeSuspend} className="flex-1 py-2.5 text-sm text-slate-600 border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors">Cancel</button>
+                <button
+                  onClick={handleSuspend}
+                  disabled={isSuspending}
+                  className="flex-1 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60 rounded-xl transition-colors"
+                >
+                  {isSuspending ? 'Suspending…' : 'Confirm Suspension'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Reset password modal */}
       {resetTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
@@ -641,12 +872,46 @@ export function DashboardPage() {
                   Admin Renew (no code required)
                 </button>
                 <button
+                  onClick={(e) => { e.stopPropagation(); openRoleManager(selectedTenant); }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-300 text-slate-700 hover:bg-slate-50 text-sm font-medium rounded-xl transition-colors"
+                >
+                  <UserCog className="h-4 w-4" />
+                  Manage Roles
+                </button>
+                <button
                   onClick={(e) => { e.stopPropagation(); openResetPassword(selectedTenant); }}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-300 text-slate-700 hover:bg-slate-50 text-sm font-medium rounded-xl transition-colors"
                 >
                   <LockKeyhole className="h-4 w-4" />
                   Reset Password
                 </button>
+                {selectedTenant.isSuspended ? (
+                  <div className="space-y-2">
+                    <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-2.5 text-xs text-red-700">
+                      <strong>Suspended</strong>
+                      {selectedTenant.suspendedUntil
+                        ? ` until ${new Date(selectedTenant.suspendedUntil).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`
+                        : ' permanently'}
+                    </div>
+                    {unsuspendError && <p className="text-xs text-red-600">{unsuspendError}</p>}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleUnsuspend(selectedTenant); }}
+                      disabled={isUnsuspending}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-green-300 text-green-700 hover:bg-green-50 disabled:opacity-60 text-sm font-medium rounded-xl transition-colors"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      {isUnsuspending ? 'Lifting suspension…' : 'Lift Suspension'}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); openSuspend(selectedTenant); }}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 text-sm font-medium rounded-xl transition-colors"
+                  >
+                    <Ban className="h-4 w-4" />
+                    Suspend Tenant
+                  </button>
+                )}
               </div>
 
               {/* Issue new activation code */}

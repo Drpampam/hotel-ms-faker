@@ -76,6 +76,8 @@ namespace hotelier_core_app.Model.Entities
         /// Gets or sets a value indicating whether the tenant is deleted.
         /// </summary>
         public bool IsDeleted { get; set; }
+        public bool IsSuspended { get; set; }
+        public DateTime? SuspendedUntil { get; set; }
 
         public PlanType? PlanType { get; set; }
 

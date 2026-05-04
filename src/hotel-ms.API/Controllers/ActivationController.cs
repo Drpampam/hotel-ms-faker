@@ -6,6 +6,7 @@ using hotelier_core_app.Service.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
+using System.Security.Claims;
 
 namespace hotelier_core_app.API.Controllers;
 
@@ -119,6 +120,26 @@ public class ActivationController : ControllerBase
     {
         var result = await _activationService.GetAllTenantsAsync();
         return Ok(result);
+    }
+
+    [Authorize(Policy = "DeveloperPolicy")]
+    [HttpPut("suspend-tenant/{tenantId}")]
+    [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse))]
+    public async Task<IActionResult> SuspendTenant(long tenantId, [FromBody] SuspendTenantRequestDTO request)
+    {
+        var callerEmail = _tokenService.GetUserEmail(Request);
+        var result = await _activationService.SuspendTenantAsync(tenantId, request.SuspendedUntil, callerEmail);
+        return result.Status ? Ok(result) : BadRequest(result);
+    }
+
+    [Authorize(Policy = "DeveloperPolicy")]
+    [HttpPut("unsuspend-tenant/{tenantId}")]
+    [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse))]
+    public async Task<IActionResult> UnsuspendTenant(long tenantId)
+    {
+        var callerEmail = _tokenService.GetUserEmail(Request);
+        var result = await _activationService.UnsuspendTenantAsync(tenantId, callerEmail);
+        return result.Status ? Ok(result) : BadRequest(result);
     }
 
     [Authorize(Policy = "AdminPolicy")]

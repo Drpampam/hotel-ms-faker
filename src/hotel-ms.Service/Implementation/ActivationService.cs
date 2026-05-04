@@ -738,11 +738,20 @@ namespace hotelier_core_app.Service.Implementation
 
             foreach (var tenant in tenants)
             {
-                var adminEmail = await _context.Users
+                var adminUser = await _context.Users
                     .Where(u => u.TenantId == tenant.Id)
                     .OrderBy(u => u.Id)
-                    .Select(u => u.Email)
-                    .FirstOrDefaultAsync() ?? string.Empty;
+                    .FirstOrDefaultAsync();
+
+                var adminEmail = adminUser?.Email ?? string.Empty;
+                var isAdminActive = adminUser?.IsActive ?? false;
+
+                var adminRoles = adminUser != null
+                    ? await _context.UserRoles
+                        .Where(ur => ur.UserId == adminUser.Id)
+                        .Join(_context.Roles, ur => ur.RoleId, r => r.Id, (ur, r) => r.Name!)
+                        .ToArrayAsync()
+                    : Array.Empty<string>();
 
                 var planType = tenant.PlanType ?? PlanType.Trial;
                 var isUnlimited = planType == PlanType.Unlimited;
@@ -751,6 +760,7 @@ namespace hotelier_core_app.Service.Implementation
                     : tenant.SubscriptionEndDate.HasValue
                         ? Math.Max(0, (int)(tenant.SubscriptionEndDate.Value - now).TotalDays)
                         : 0;
+                var isSuspended = tenant.IsSuspended || (tenant.SuspendedUntil.HasValue && tenant.SuspendedUntil.Value > now);
 
                 result.Add(new TenantSummaryDTO
                 {
@@ -764,11 +774,78 @@ namespace hotelier_core_app.Service.Implementation
                     IsUnlimited = isUnlimited,
                     ExpiresAt = tenant.SubscriptionEndDate,
                     DaysRemaining = daysRemaining,
-                    CreatedAt = tenant.CreationDate
+                    CreatedAt = tenant.CreationDate,
+                    AdminRoles = adminRoles,
+                    IsAdminActive = isAdminActive,
+                    IsSuspended = isSuspended,
+                    SuspendedUntil = tenant.SuspendedUntil
                 });
             }
 
             return BaseResponse<List<TenantSummaryDTO>>.Success(result, "Tenants retrieved.");
+        }
+
+        public async Task<BaseResponse> SuspendTenantAsync(long tenantId, DateTime? suspendedUntil, string callerEmail)
+        {
+            _tenantProvider.SetSchema("public");
+            var tenant = await _tenantQueryRepository.FindAsync(tenantId);
+            if (tenant == null)
+                return BaseResponse.Failure(ResponseMessages.TenantNotExisting);
+
+            tenant.IsSuspended = suspendedUntil == null;
+            tenant.SuspendedUntil = suspendedUntil;
+            tenant.LastModifiedDate = DateTime.UtcNow;
+            tenant.ModifiedBy = callerEmail;
+
+            await _tenantCommandRepository.UpdateAsync(tenant);
+            await _context.SaveChangesAsync();
+
+            await _auditLogRepository.AddAsync(new AuditLog
+            {
+                Action = UserAction.DeactivateUser,
+                DatePerformed = DateTime.UtcNow,
+                PerformedBy = callerEmail,
+                PerformerEmail = callerEmail,
+                PerformedAgainst = tenant.Name ?? tenantId.ToString(),
+                IpAddress = "Admin-Portal",
+                MacAddress = HashCode(callerEmail)[..16]
+            });
+            await _auditLogRepository.SaveAsync();
+
+            var msg = suspendedUntil.HasValue
+                ? $"Tenant suspended until {suspendedUntil.Value:yyyy-MM-dd}."
+                : "Tenant permanently suspended.";
+            return BaseResponse.Success(msg);
+        }
+
+        public async Task<BaseResponse> UnsuspendTenantAsync(long tenantId, string callerEmail)
+        {
+            _tenantProvider.SetSchema("public");
+            var tenant = await _tenantQueryRepository.FindAsync(tenantId);
+            if (tenant == null)
+                return BaseResponse.Failure(ResponseMessages.TenantNotExisting);
+
+            tenant.IsSuspended = false;
+            tenant.SuspendedUntil = null;
+            tenant.LastModifiedDate = DateTime.UtcNow;
+            tenant.ModifiedBy = callerEmail;
+
+            await _tenantCommandRepository.UpdateAsync(tenant);
+            await _context.SaveChangesAsync();
+
+            await _auditLogRepository.AddAsync(new AuditLog
+            {
+                Action = UserAction.ActivateUser,
+                DatePerformed = DateTime.UtcNow,
+                PerformedBy = callerEmail,
+                PerformerEmail = callerEmail,
+                PerformedAgainst = tenant.Name ?? tenantId.ToString(),
+                IpAddress = "Admin-Portal",
+                MacAddress = HashCode(callerEmail)[..16]
+            });
+            await _auditLogRepository.SaveAsync();
+
+            return BaseResponse.Success("Tenant suspension lifted. Access restored.");
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────────

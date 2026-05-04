@@ -1,5 +1,4 @@
-﻿using hotelier_core_app.Core.Enums;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace hotelier_core_app.Model.DTOs.Request
 {
@@ -53,6 +52,6 @@ namespace hotelier_core_app.Model.DTOs.Request
         /// Gets or sets the role assigned to the user.
         /// </summary>
         [Required]
-        public UserRole Role { get; set; }
+        public string Role { get; set; } = string.Empty;
     }
 }

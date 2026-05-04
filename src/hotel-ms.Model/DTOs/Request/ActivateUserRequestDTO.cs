@@ -1,6 +1,4 @@
-﻿using hotelier_core_app.Core.Enums;
-
-namespace hotelier_core_app.Model.DTOs.Request
+﻿namespace hotelier_core_app.Model.DTOs.Request
 {
     /// <summary>
     /// Data transfer object for activating a user account.
@@ -15,6 +13,6 @@ namespace hotelier_core_app.Model.DTOs.Request
         /// <summary>
         /// Gets or sets the role to assign to the user upon activation.
         /// </summary>
-        public UserRole Role { get; set; }
+        public string Role { get; set; } = string.Empty;
     }
 }

@@ -77,6 +77,10 @@ const adminService = {
     const res = await api.post<{ data: GenerateCodeResult }>('/api/v1/activation/generate', { email, planType });
     return res.data.data;
   },
+
+  async resetPassword(email: string, newPassword: string): Promise<void> {
+    await api.put('/api/v1/user/admin-change-password', { email, newPassword });
+  },
 };
 
 export default adminService;

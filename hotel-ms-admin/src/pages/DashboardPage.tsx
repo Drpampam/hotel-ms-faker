@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Copy, Check, KeyRound, RefreshCw, Plus, X, Hotel, LogOut, ChevronRight, Calendar, Mail, Tag, ShieldCheck } from 'lucide-react';
+import { Copy, Check, KeyRound, RefreshCw, Plus, X, Hotel, LogOut, ChevronRight, Calendar, Mail, Tag, ShieldCheck, LockKeyhole } from 'lucide-react';
 import { useAdminStore } from '../lib/store';
 import adminService, { type ProvisionResult, type TenantSummary, type GenerateCodeResult } from '../services/admin.service';
 import { cn } from '../lib/utils';
@@ -79,6 +79,14 @@ export function DashboardPage() {
   const [isRenewing, setIsRenewing] = useState(false);
   const [renewError, setRenewError] = useState('');
 
+  // Reset password modal state
+  const [resetTarget, setResetTarget] = useState<TenantSummary | null>(null);
+  const [newPwd, setNewPwd] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetError, setResetError] = useState('');
+  const [resetDone, setResetDone] = useState(false);
+
   // Detail panel state
   const [selectedTenant, setSelectedTenant] = useState<TenantSummary | null>(null);
   const [genCodePlan, setGenCodePlan] = useState<PlanKey>('Trial');
@@ -149,6 +157,38 @@ export function DashboardPage() {
     setSelectedTenant(null);
     setGenCodeResult(null);
     setGenCodeError('');
+  };
+
+  const openResetPassword = (t: TenantSummary) => {
+    setResetTarget(t);
+    setNewPwd('');
+    setConfirmPwd('');
+    setResetError('');
+    setResetDone(false);
+  };
+
+  const closeResetPassword = () => {
+    setResetTarget(null);
+    setNewPwd('');
+    setConfirmPwd('');
+    setResetError('');
+    setResetDone(false);
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetTarget) return;
+    if (newPwd.length < 6) { setResetError('Password must be at least 6 characters.'); return; }
+    if (newPwd !== confirmPwd) { setResetError('Passwords do not match.'); return; }
+    setResetError('');
+    setIsResetting(true);
+    try {
+      await adminService.resetPassword(resetTarget.adminEmail, newPwd);
+      setResetDone(true);
+    } catch (err) {
+      setResetError(err instanceof Error ? err.message : 'Failed to reset password.');
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   const handleGenerateCode = async () => {
@@ -456,6 +496,77 @@ export function DashboardPage() {
         </div>
       )}
 
+      {/* Reset password modal */}
+      {resetTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="font-semibold text-slate-900">Reset Password</h3>
+                <p className="text-sm text-slate-500 mt-0.5">{resetTarget.name || resetTarget.adminEmail}</p>
+              </div>
+              <button onClick={closeResetPassword} className="p-1 text-slate-400 hover:text-slate-600">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {resetDone ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 rounded-xl bg-green-50 border border-green-200 px-4 py-3">
+                  <Check className="h-5 w-5 text-green-600 flex-shrink-0" />
+                  <p className="text-sm text-green-700">Password has been reset for <strong>{resetTarget.adminEmail}</strong>.</p>
+                </div>
+                <button
+                  onClick={closeResetPassword}
+                  className="w-full py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">New password</label>
+                  <input
+                    type="password"
+                    value={newPwd}
+                    onChange={(e) => { setNewPwd(e.target.value); setResetError(''); }}
+                    placeholder="Min. 6 characters"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Confirm password</label>
+                  <input
+                    type="password"
+                    value={confirmPwd}
+                    onChange={(e) => { setConfirmPwd(e.target.value); setResetError(''); }}
+                    placeholder="Re-enter new password"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                {resetError && <p className="text-sm text-red-600">{resetError}</p>}
+                <div className="flex gap-3">
+                  <button
+                    onClick={closeResetPassword}
+                    className="flex-1 py-2.5 text-sm text-slate-600 border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleResetPassword}
+                    disabled={isResetting}
+                    className="flex-1 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 rounded-xl transition-colors"
+                  >
+                    {isResetting ? 'Resetting…' : 'Reset Password'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Tenant detail slide-over */}
       {selectedTenant && (
         <>
@@ -528,6 +639,13 @@ export function DashboardPage() {
                 >
                   <RefreshCw className="h-4 w-4" />
                   Admin Renew (no code required)
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); openResetPassword(selectedTenant); }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-300 text-slate-700 hover:bg-slate-50 text-sm font-medium rounded-xl transition-colors"
+                >
+                  <LockKeyhole className="h-4 w-4" />
+                  Reset Password
                 </button>
               </div>
 

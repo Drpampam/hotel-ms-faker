@@ -72,6 +72,30 @@ namespace hotelier_core_app.API.Controllers
             return Ok(result);
         }
 
+        [Authorize(Policy = "AdminPolicy")]
+        [HttpPost("add-staff")]
+        [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse))]
+        [ProducesResponseType((int)HttpStatusCode.BadRequest, Type = typeof(ValidationResultModel))]
+        public async Task<IActionResult> AddStaff(CreateUserRequestDTO model)
+        {
+            var callerTenantId = _tokenHelper.GetTenantId(Request);
+            if (!callerTenantId.HasValue || callerTenantId <= 0)
+                return Unauthorized(new { Status = false, Message = "Tenant context required." });
+
+            AuditLog auditLog = new AuditLog
+            {
+                Action = UserAction.CreateUser,
+                DatePerformed = DateTime.UtcNow,
+                PerformedBy = _tokenHelper.GetUserFullName(Request),
+                PerformerEmail = _tokenHelper.GetUserEmail(Request),
+                IpAddress = _accessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown IP",
+                PerformedAgainst = model.Email,
+                MacAddress = _tokenHelper.GetMacAddress(Request)
+            };
+            BaseResponse response = await _userService.AddStaffAsync(model, callerTenantId.Value, auditLog);
+            return Ok(response);
+        }
+
         [AllowAnonymous]
         [HttpPost("create-user")]
         [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(BaseResponse))]

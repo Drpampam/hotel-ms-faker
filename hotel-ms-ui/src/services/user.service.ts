@@ -63,7 +63,7 @@ export const userService = {
   },
 
   async create(user: CreateUserRequest): Promise<void> {
-    await api.post('/api/v1/User/create-user', user);
+    await api.post('/api/v1/User/add-staff', user);
   },
 
   async update(user: { email: string; fullName: string; roles: string[] }): Promise<void> {

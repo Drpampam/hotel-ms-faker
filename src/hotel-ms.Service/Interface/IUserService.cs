@@ -7,6 +7,7 @@ namespace hotelier_core_app.Service.Interface
     public interface IUserService : IAutoDependencyService
     {
         Task<BaseResponse> CreateUser(CreateUserRequestDTO model, AuditLog auditLog);
+        Task<BaseResponse> AddStaffAsync(CreateUserRequestDTO model, long callerTenantId, AuditLog auditLog);
 
         Task<BaseResponse> DeactivateUser(DeactivateUserRequestDTO model, AuditLog auditLog, long? callerTenantId);
 

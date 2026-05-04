@@ -217,6 +217,53 @@ namespace hotelier_core_app.Service.Implementation
             return BaseResponse.Success(ResponseMessages.UserCreated, ResponseStatusCode.UserCreated);
         }
 
+        public async Task<BaseResponse> AddStaffAsync(CreateUserRequestDTO model, long callerTenantId, AuditLog auditLog)
+        {
+            var existingUser = await _userManager.FindByEmailAsync(model.Email);
+            if (existingUser != null)
+                return BaseResponse.Failure(ResponseMessages.UserExist, ResponseStatusCode.UserExist);
+
+            ApplicationUser newUser = _mapper.Map<ApplicationUser>(model);
+            newUser.CreationDate = DateTime.UtcNow;
+            newUser.CreatedBy = auditLog.PerformerEmail ?? HOTELIER_ADMIN;
+            newUser.TenantId = callerTenantId;
+            newUser.IsActive = true;
+            newUser.Status = UserStatus.Active.ToString();
+            newUser.EmailConfirmed = true;
+            newUser.PhoneNumberConfirmed = true;
+
+            IdentityResult newUserResult = await _userManager.CreateAsync(newUser, model.Password);
+            if (!newUserResult.Succeeded)
+                return HandleIdentityErrors(newUserResult);
+
+            var roleName = model.Role.ToString();
+            if (!await _roleManager.RoleExistsAsync(roleName))
+                return BaseResponse.Failure($"Role '{roleName}' does not exist.", ResponseStatusCode.RoleNotExist);
+
+            try
+            {
+                var role = await _roleManager.FindByNameAsync(roleName);
+                if (role == null)
+                    return BaseResponse.Failure($"Role '{roleName}' not found.", ResponseStatusCode.RoleNotExist);
+
+                await _userRoleCommandRepository.AddAsync(new ApplicationUserRole
+                {
+                    UserId = newUser.Id,
+                    RoleId = role.Id,
+                    TenantId = callerTenantId
+                });
+                await _userRoleCommandRepository.SaveAsync();
+            }
+            catch (Exception ex)
+            {
+                await _userManager.DeleteAsync(newUser);
+                return BaseResponse.Failure(ex.Message, ResponseStatusCode.SQlException);
+            }
+
+            _auditLogCommandRepository.Add(auditLog);
+            return BaseResponse.Success(ResponseMessages.UserCreated, ResponseStatusCode.UserCreated);
+        }
+
         public async Task<BaseResponse> DeactivateUser(DeactivateUserRequestDTO model, AuditLog auditLog, long? callerTenantId)
         {
             var user = await _userManager.FindByEmailAsync(model.Email);

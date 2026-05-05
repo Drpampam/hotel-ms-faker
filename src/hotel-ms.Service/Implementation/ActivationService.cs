@@ -126,7 +126,8 @@ namespace hotelier_core_app.Service.Implementation
             }
             catch (Exception ex) when (ex.GetBaseException().Message.Contains("already exists"))
             {
-                _logger.LogWarning("Schema {Schema} already exists — stamping pending migrations.", schema);
+                _logger.LogWarning("Schema {Schema} already exists — purging stale data and stamping pending migrations.", schema);
+                await PurgeTenantSchemaAsync();
                 foreach (var mig in _context.Database.GetPendingMigrations())
                 {
                     await _context.Database.ExecuteSqlRawAsync(
@@ -368,7 +369,8 @@ namespace hotelier_core_app.Service.Implementation
             }
             catch (Exception ex) when (ex.GetBaseException().Message.Contains("already exists"))
             {
-                _logger.LogWarning("Schema {Schema} already exists — stamping pending migrations.", schema);
+                _logger.LogWarning("Schema {Schema} already exists — purging stale data and stamping pending migrations.", schema);
+                await PurgeTenantSchemaAsync();
                 foreach (var mig in _context.Database.GetPendingMigrations())
                 {
                     await _context.Database.ExecuteSqlRawAsync(
@@ -634,7 +636,8 @@ namespace hotelier_core_app.Service.Implementation
             }
             catch (Exception ex) when (ex.GetBaseException().Message.Contains("already exists"))
             {
-                _logger.LogWarning("Schema {Schema} already exists — stamping pending migrations.", schema);
+                _logger.LogWarning("Schema {Schema} already exists — purging stale data and stamping pending migrations.", schema);
+                await PurgeTenantSchemaAsync();
                 foreach (var mig in _context.Database.GetPendingMigrations())
                 {
                     await _context.Database.ExecuteSqlRawAsync(
@@ -849,6 +852,34 @@ namespace hotelier_core_app.Service.Implementation
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────────
+
+        // Wipes all business data from an existing tenant schema so the incoming
+        // tenant starts with a blank slate. Identity tables (Role) are left intact
+        // because roles are re-seeded after this call. User / UserRole rows in the
+        // tenant schema are cleared too — real users live in the public schema.
+        private async Task PurgeTenantSchemaAsync()
+        {
+            await _context.Database.ExecuteSqlRawAsync(@"
+                DO $$
+                DECLARE tbl text;
+                BEGIN
+                    FOREACH tbl IN ARRAY ARRAY[
+                        'ReservationExpense','Reservation','HousekeepingTask',
+                        'ServiceRequest','Payment','InvoiceLineItem','Invoice',
+                        'LoyaltyProgram','Discount','AuditLog',
+                        'Room','Property','GuestProfile','Address',
+                        'UserRole','UserClaim','UserLogin','UserToken','User'
+                    ]
+                    LOOP
+                        BEGIN
+                            EXECUTE format('TRUNCATE TABLE %I RESTART IDENTITY CASCADE', tbl);
+                        EXCEPTION WHEN undefined_table THEN
+                            NULL; -- table may not exist yet; ignore
+                        END;
+                    END LOOP;
+                END $$;
+            ");
+        }
 
         private static (DateTime start, DateTime? end) PlanDates(PlanType planType)
         {

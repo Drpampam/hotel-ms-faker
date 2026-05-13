@@ -141,6 +141,8 @@ namespace hotelier_core_app.Service.Implementation
                 ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Shift""             varchar(50);
                 ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Department""         varchar(100);
                 ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""MustChangePassword"" boolean NOT NULL DEFAULT false;
+                ALTER TABLE ""Reservation"" ADD COLUMN IF NOT EXISTS ""ActualCheckInDate""  timestamptz;
+                ALTER TABLE ""Reservation"" ADD COLUMN IF NOT EXISTS ""ActualCheckOutDate"" timestamptz;
             ");
 
             // 4 — Seed roles in tenant schema
@@ -382,6 +384,8 @@ namespace hotelier_core_app.Service.Implementation
                 ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Shift""             varchar(50);
                 ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Department""         varchar(100);
                 ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""MustChangePassword"" boolean NOT NULL DEFAULT false;
+                ALTER TABLE ""Reservation"" ADD COLUMN IF NOT EXISTS ""ActualCheckInDate""  timestamptz;
+                ALTER TABLE ""Reservation"" ADD COLUMN IF NOT EXISTS ""ActualCheckOutDate"" timestamptz;
             ");
 
             // 3 — Seed roles in tenant schema
@@ -650,6 +654,8 @@ namespace hotelier_core_app.Service.Implementation
                 ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Shift""             varchar(50);
                 ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""Department""         varchar(100);
                 ALTER TABLE ""User"" ADD COLUMN IF NOT EXISTS ""MustChangePassword"" boolean NOT NULL DEFAULT false;
+                ALTER TABLE ""Reservation"" ADD COLUMN IF NOT EXISTS ""ActualCheckInDate""  timestamptz;
+                ALTER TABLE ""Reservation"" ADD COLUMN IF NOT EXISTS ""ActualCheckOutDate"" timestamptz;
             ");
 
             // 3 — Seed roles in tenant schema

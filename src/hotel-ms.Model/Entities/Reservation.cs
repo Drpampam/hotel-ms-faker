@@ -19,6 +19,10 @@ namespace hotelier_core_app.Model.Entities
 
         public DateTime CheckOutDate { get; set; }
 
+        public DateTime? ActualCheckInDate { get; set; }
+
+        public DateTime? ActualCheckOutDate { get; set; }
+
         public decimal TotalPrice { get; set; }
 
         public ReservationState Status { get; set; } = ReservationState.Pending;

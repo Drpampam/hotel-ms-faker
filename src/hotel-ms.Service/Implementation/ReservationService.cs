@@ -358,6 +358,7 @@ namespace hotelier_core_app.Service.Implementation
             reservation.Status = ReservationState.CheckedIn;
             reservation.ModifiedBy = auditLog.PerformedBy;
             reservation.LastModifiedDate = DateTime.UtcNow;
+            reservation.ActualCheckInDate = DateTime.UtcNow;
 
             await _reservationCommandRepository.UpdateAsync(reservation);
 
@@ -400,6 +401,7 @@ namespace hotelier_core_app.Service.Implementation
             reservation.Status = ReservationState.CheckedOut;
             reservation.ModifiedBy = auditLog.PerformedBy;
             reservation.LastModifiedDate = DateTime.UtcNow;
+            reservation.ActualCheckOutDate = DateTime.UtcNow;
 
             await _reservationCommandRepository.UpdateAsync(reservation);
 

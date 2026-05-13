@@ -66,6 +66,20 @@ namespace hotelier_core_app.Migrations
                 ALTER TABLE ""Tenant"" ADD COLUMN IF NOT EXISTS ""SuspendedUntil"" timestamptz;
             ");
 
+            // Add ActualCheckInDate / ActualCheckOutDate to every existing tenant schema
+            var tenantIds = await context.Tenants
+                .Where(t => !t.IsDeleted)
+                .Select(t => t.Id)
+                .ToListAsync();
+            foreach (var tid in tenantIds)
+            {
+                var s = $"tenant_{tid}";
+                await context.Database.ExecuteSqlRawAsync($@"
+                    ALTER TABLE ""{s}"".""Reservation"" ADD COLUMN IF NOT EXISTS ""ActualCheckInDate""  timestamptz;
+                    ALTER TABLE ""{s}"".""Reservation"" ADD COLUMN IF NOT EXISTS ""ActualCheckOutDate"" timestamptz;
+                ");
+            }
+
             // ── Permissions ──────────────────────────────────────────────────────
             if (!context.Permission.Any())
             {

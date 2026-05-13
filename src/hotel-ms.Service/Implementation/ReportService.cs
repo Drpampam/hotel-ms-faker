@@ -322,9 +322,9 @@ namespace hotelier_core_app.Service.Implementation
             var sql = $@"
                 SELECT
                     COUNT(*) FILTER (WHERE DATE(r.""CheckInDate"") = DATE(@Date) AND r.""Status"" IN (1, 2)) AS ""ExpectedArrivals"",
-                    COUNT(*) FILTER (WHERE r.""Status"" = 2 AND r.""LastModifiedDate"" IS NOT NULL AND DATE(r.""LastModifiedDate"") = DATE(@Date)) AS ""ActualCheckIns"",
+                    COUNT(*) FILTER (WHERE r.""ActualCheckInDate""  IS NOT NULL AND DATE(r.""ActualCheckInDate"")  = DATE(@Date)) AS ""ActualCheckIns"",
                     COUNT(*) FILTER (WHERE DATE(r.""CheckOutDate"") = DATE(@Date) AND r.""Status"" IN (2, 3)) AS ""ExpectedDepartures"",
-                    COUNT(*) FILTER (WHERE r.""Status"" = 3 AND r.""LastModifiedDate"" IS NOT NULL AND DATE(r.""LastModifiedDate"") = DATE(@Date)) AS ""ActualCheckOuts"",
+                    COUNT(*) FILTER (WHERE r.""ActualCheckOutDate"" IS NOT NULL AND DATE(r.""ActualCheckOutDate"") = DATE(@Date)) AS ""ActualCheckOuts"",
                     COUNT(*) FILTER (WHERE r.""Status"" = 2) AS ""CurrentlyOccupied""
                 FROM ""{schema}"".""Reservation"" r
                 WHERE r.""IsDeleted"" = false";

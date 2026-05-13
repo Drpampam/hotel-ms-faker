@@ -240,6 +240,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseRateLimiter();
+app.UseMiddleware<hotelier_core_app.API.Middleware.DiagnosticsMiddleware>();
 app.ConfigureExceptionHandler();
 
 var supportedCultures = new[] { new CultureInfo("en-GB"), new CultureInfo("en-US") };

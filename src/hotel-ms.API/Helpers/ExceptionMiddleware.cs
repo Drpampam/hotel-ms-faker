@@ -19,39 +19,53 @@ namespace hotelier_core_app.API.Helpers
                     context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
                     context.Response.ContentType = "application/json";
 
-                    if (contextFeature != null)
+                    if (contextFeature == null) return;
+
+                    var ex = contextFeature.Error;
+
+                    var logger = context.RequestServices
+                        .GetService<ILoggerFactory>()
+                        ?.CreateLogger("GlobalExceptionHandler");
+
+                    // Log full exception + stack trace so Render logs capture every detail.
+                    logger?.LogError(ex,
+                        "[500] {ExType} on {Method} {Path} | {Message}",
+                        ex.GetType().FullName,
+                        context.Request.Method,
+                        context.Request.Path,
+                        ex.Message);
+
+                    if (ex is BaseException baseEx)
                     {
-                        var ex = contextFeature.Error;
-
-                        // Log every unhandled exception so Render/server logs capture the real cause.
-                        var logger = context.RequestServices
-                            .GetService<ILoggerFactory>()
-                            ?.CreateLogger("GlobalExceptionHandler");
-                        logger?.LogError(ex,
-                            "Unhandled exception [{Type}] on {Method} {Path}: {Message}",
-                            ex.GetType().Name,
-                            context.Request.Method,
-                            context.Request.Path,
-                            ex.Message);
-
-                        if (ex is BaseException baseEx)
+                        context.Response.StatusCode = (int)baseEx.StatusCode;
+                        await context.Response.WriteAsync(JsonConvert.SerializeObject(new
                         {
-                            context.Response.StatusCode = (int)baseEx.StatusCode;
-                            await context.Response.WriteAsync(JsonConvert.SerializeObject(new BaseResponse
-                            {
-                                Status = false,
-                                Message = baseEx.Message
-                            }));
-                        }
-                        else
-                        {
-                            await context.Response.WriteAsync(JsonConvert.SerializeObject(new BaseResponse
-                            {
-                                Status = false,
-                                Message = "An unexpected error occurred. Please try again."
-                            }));
-                        }
+                            Status = false,
+                            Message = baseEx.Message
+                        }));
+                        return;
                     }
+
+                    // In non-production environments (or when DIAG_ERRORS env var is set)
+                    // expose the real exception so it is visible in the API response.
+                    var expose = !app.ApplicationServices
+                                        .GetRequiredService<IWebHostEnvironment>()
+                                        .IsProduction()
+                                  || Environment.GetEnvironmentVariable("DIAG_ERRORS") == "1";
+
+                    await context.Response.WriteAsync(JsonConvert.SerializeObject(new
+                    {
+                        Status = false,
+                        Message = "An unexpected error occurred. Please try again.",
+                        // Visible when DIAG_ERRORS=1 is set on the server (Render env vars).
+                        Debug = expose ? new
+                        {
+                            ExceptionType = ex.GetType().FullName,
+                            ex.Message,
+                            InnerException = ex.InnerException?.Message,
+                            StackTrace = ex.StackTrace
+                        } : null
+                    }));
                 });
             });
         }

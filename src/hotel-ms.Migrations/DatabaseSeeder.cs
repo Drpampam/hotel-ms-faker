@@ -66,8 +66,9 @@ namespace hotelier_core_app.Migrations
                 ALTER TABLE ""Tenant"" ADD COLUMN IF NOT EXISTS ""SuspendedUntil"" timestamptz;
             ");
 
-            // Add ActualCheckInDate / ActualCheckOutDate to every provisioned tenant schema.
-            // Wrapped per-tenant so a missing/unprovisioned schema never crashes the seeder.
+            // Idempotent per-tenant column guards — run every startup so columns that were
+            // added post-migration (Shift, Department, MustChangePassword, ActualCheck*) are
+            // always present in every provisioned tenant schema.
             var tenantIds = await context.Tenants
                 .Where(t => !t.IsDeleted)
                 .Select(t => t.Id)
@@ -78,13 +79,16 @@ namespace hotelier_core_app.Migrations
                 try
                 {
                     await context.Database.ExecuteSqlRawAsync($@"
+                        ALTER TABLE ""{s}"".""User"" ADD COLUMN IF NOT EXISTS ""Shift""             varchar(50);
+                        ALTER TABLE ""{s}"".""User"" ADD COLUMN IF NOT EXISTS ""Department""         varchar(100);
+                        ALTER TABLE ""{s}"".""User"" ADD COLUMN IF NOT EXISTS ""MustChangePassword"" boolean NOT NULL DEFAULT false;
                         ALTER TABLE ""{s}"".""Reservation"" ADD COLUMN IF NOT EXISTS ""ActualCheckInDate""  timestamptz;
                         ALTER TABLE ""{s}"".""Reservation"" ADD COLUMN IF NOT EXISTS ""ActualCheckOutDate"" timestamptz;
                     ");
                 }
                 catch
                 {
-                    // Schema or Reservation table not provisioned yet — skip silently.
+                    // Schema or table not provisioned yet — skip silently.
                 }
             }
 

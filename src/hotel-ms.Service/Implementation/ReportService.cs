@@ -159,11 +159,11 @@ namespace hotelier_core_app.Service.Implementation
 
             var sql = $@"
                 SELECT
-                    COALESCE(SUM(i.""TotalAmount""), 0) AS ""TotalRevenue"",
-                    COALESCE(SUM(i.""SubTotal""), 0) AS ""RoomRevenue"",
-                    COALESCE(SUM(i.""TaxAmount""), 0) AS ""TaxCollected"",
-                    COALESCE(SUM(i.""DiscountAmount""), 0) AS ""TotalDiscountsApplied"",
-                    COUNT(*) FILTER (WHERE i.""Status"" = 2) AS ""PaidInvoicesCount"",
+                    COALESCE(SUM(i.""TotalAmount"")    FILTER (WHERE i.""Status"" = 2), 0) AS ""TotalRevenue"",
+                    COALESCE(SUM(i.""SubTotal"")       FILTER (WHERE i.""Status"" = 2), 0) AS ""RoomRevenue"",
+                    COALESCE(SUM(i.""TaxAmount"")      FILTER (WHERE i.""Status"" = 2), 0) AS ""TaxCollected"",
+                    COALESCE(SUM(i.""DiscountAmount"") FILTER (WHERE i.""Status"" = 2), 0) AS ""TotalDiscountsApplied"",
+                    COUNT(*) FILTER (WHERE i.""Status"" = 2)       AS ""PaidInvoicesCount"",
                     COUNT(*) FILTER (WHERE i.""Status"" IN (0, 1)) AS ""PendingInvoicesCount""
                 FROM ""{schema}"".""Invoice"" i
                 {propertyJoin}
@@ -281,7 +281,8 @@ namespace hotelier_core_app.Service.Implementation
                     COALESCE(SUM(p.""Amount""), 0) AS ""TotalAmount""
                 FROM ""{schema}"".""Payment"" p
                 WHERE p.""PaymentDate"" >= @FromDate
-                  AND p.""PaymentDate"" <= @ToDate";
+                  AND p.""PaymentDate"" <= @ToDate
+                  AND p.""PaymentState"" = 2";
 
             var byMethodSql = $@"
                 SELECT
@@ -291,6 +292,7 @@ namespace hotelier_core_app.Service.Implementation
                 FROM ""{schema}"".""Payment"" p
                 WHERE p.""PaymentDate"" >= @FromDate
                   AND p.""PaymentDate"" <= @ToDate
+                  AND p.""PaymentState"" = 2
                 GROUP BY p.""PaymentMethod""";
 
             var param = new { FromDate = fromDate, ToDate = toDate };

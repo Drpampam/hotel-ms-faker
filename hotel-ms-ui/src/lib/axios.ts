@@ -146,12 +146,25 @@ api.interceptors.response.use(
       }
     }
 
-    if (status === 403) {
+    if (status === 402) {
+      const body = error.response?.data as { message?: string } | undefined;
       import('./store').then(({ useNotificationStore }) => {
         useNotificationStore.getState().addNotification({
           type: 'error',
-          title: 'Permission denied',
-          message: 'You do not have access to perform this action.',
+          title: 'Subscription expired',
+          message: body?.message || 'Your subscription has expired. Please renew to continue.',
+        });
+      });
+      return Promise.reject(new Error(body?.message || 'Your subscription has expired. Please renew to continue.'));
+    }
+
+    if (status === 403) {
+      const body = error.response?.data as { message?: string } | undefined;
+      import('./store').then(({ useNotificationStore }) => {
+        useNotificationStore.getState().addNotification({
+          type: 'error',
+          title: 'Access denied',
+          message: body?.message || 'You do not have access to perform this action.',
         });
       });
       return Promise.reject(error);

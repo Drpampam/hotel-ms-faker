@@ -18,6 +18,7 @@ using hotelier_core_app.Model.Entities;
 using hotelier_core_app.Service.AutofacModule;
 using hotelier_core_app.Service.AutoMapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.RateLimiting;
@@ -213,8 +214,15 @@ var app = builder.Build();
 }
 
 // Configure the HTTP request pipeline.
-// CORS must be first so preflight OPTIONS requests get the required headers
-// before any middleware (rate limiter, auth) can short-circuit the request.
+// ForwardedHeaders must be first so downstream middleware (HTTPS redirect, auth)
+// sees the original client scheme/IP that Render.com (and other proxies) forwarded.
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
+
+// CORS must come before rate limiter / auth so preflight OPTIONS requests get
+// the required headers before any middleware can short-circuit the request.
 app.UseCors(x =>
 {
     if (app.Environment.IsDevelopment())

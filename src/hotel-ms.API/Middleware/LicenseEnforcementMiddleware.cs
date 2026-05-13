@@ -1,6 +1,8 @@
+using Dapper;
+using hotelier_core_app.Core.Enums;
 using hotelier_core_app.Migrations;
-using hotelier_core_app.Model.Entities;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Npgsql;
 using System.Text.Json;
 
 namespace hotelier_core_app.API.Middleware
@@ -8,6 +10,7 @@ namespace hotelier_core_app.API.Middleware
     public class LicenseEnforcementMiddleware
     {
         private readonly RequestDelegate _next;
+        private readonly string _connStr;
 
         private static readonly HashSet<string> _exemptPrefixes = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -21,9 +24,13 @@ namespace hotelier_core_app.API.Middleware
             "/swagger"
         };
 
-        public LicenseEnforcementMiddleware(RequestDelegate next) => _next = next;
+        public LicenseEnforcementMiddleware(RequestDelegate next, IConfiguration configuration)
+        {
+            _next = next;
+            _connStr = configuration.GetConnectionString("DbConnectionString") ?? string.Empty;
+        }
 
-        public async Task InvokeAsync(HttpContext context, AppDbContext db, ITenantProvider tenantProvider)
+        public async Task InvokeAsync(HttpContext context)
         {
             var path = context.Request.Path.Value ?? string.Empty;
 
@@ -40,58 +47,71 @@ namespace hotelier_core_app.API.Middleware
                 return;
             }
 
-            // Read tenant from public schema
-            var previousSchema = tenantProvider.GetSchema();
-            tenantProvider.SetSchema("public");
-
-            var tenant = await db.Tenants
-                .AsNoTracking()
-                .FirstOrDefaultAsync(t => t.Id == tenantId && !t.IsDeleted);
-
-            tenantProvider.SetSchema(previousSchema);
-
-            if (tenant == null)
+            try
             {
-                await _next(context);
-                return;
-            }
+                using var conn = new NpgsqlConnection(_connStr);
+                var tenant = await conn.QueryFirstOrDefaultAsync<TenantLicenseInfo>(
+                    @"SELECT ""IsSuspended"", ""SuspendedUntil"", ""SubscriptionEndDate"", ""PlanType""
+                      FROM public.""Tenant""
+                      WHERE ""Id"" = @Id AND ""IsDeleted"" = false",
+                    new { Id = tenantId });
 
-            var now = DateTime.UtcNow;
-            var isSuspended = tenant.IsSuspended || (tenant.SuspendedUntil.HasValue && tenant.SuspendedUntil.Value > now);
-            if (isSuspended)
-            {
-                context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                context.Response.ContentType = "application/json";
-                var payload = JsonSerializer.Serialize(new
+                if (tenant == null)
                 {
-                    status = false,
-                    message = "This account has been suspended. Please contact support.",
-                    suspendedUntil = tenant.SuspendedUntil
-                });
-                await context.Response.WriteAsync(payload);
-                return;
-            }
+                    await _next(context);
+                    return;
+                }
 
-            var isUnlimited = tenant.PlanType == Core.Enums.PlanType.Unlimited;
-            var isExpired = !isUnlimited
-                && tenant.SubscriptionEndDate.HasValue
-                && tenant.SubscriptionEndDate.Value < now;
+                var now = DateTime.UtcNow;
+                var isSuspended = tenant.IsSuspended
+                    || (tenant.SuspendedUntil.HasValue && tenant.SuspendedUntil.Value > now);
 
-            if (isExpired)
-            {
-                context.Response.StatusCode = StatusCodes.Status402PaymentRequired;
-                context.Response.ContentType = "application/json";
-                var payload = JsonSerializer.Serialize(new
+                if (isSuspended)
                 {
-                    status = false,
-                    message = "Your subscription has expired. Please renew to continue.",
-                    expiredAt = tenant.SubscriptionEndDate
-                });
-                await context.Response.WriteAsync(payload);
-                return;
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    context.Response.ContentType = "application/json";
+                    await context.Response.WriteAsync(JsonSerializer.Serialize(new
+                    {
+                        status = false,
+                        message = "This account has been suspended. Please contact support.",
+                        suspendedUntil = tenant.SuspendedUntil
+                    }));
+                    return;
+                }
+
+                var isUnlimited = tenant.PlanType == (int)PlanType.Unlimited;
+                var isExpired = !isUnlimited
+                    && tenant.SubscriptionEndDate.HasValue
+                    && tenant.SubscriptionEndDate.Value < now;
+
+                if (isExpired)
+                {
+                    context.Response.StatusCode = StatusCodes.Status402PaymentRequired;
+                    context.Response.ContentType = "application/json";
+                    await context.Response.WriteAsync(JsonSerializer.Serialize(new
+                    {
+                        status = false,
+                        message = "Your subscription has expired. Please renew to continue.",
+                        expiredAt = tenant.SubscriptionEndDate
+                    }));
+                    return;
+                }
+            }
+            catch
+            {
+                // If the license check itself fails (e.g. DB unreachable), let the request
+                // through so a transient infrastructure error doesn't lock out all users.
             }
 
             await _next(context);
+        }
+
+        private sealed class TenantLicenseInfo
+        {
+            public bool IsSuspended { get; init; }
+            public DateTime? SuspendedUntil { get; init; }
+            public DateTime? SubscriptionEndDate { get; init; }
+            public int? PlanType { get; init; }
         }
     }
 }

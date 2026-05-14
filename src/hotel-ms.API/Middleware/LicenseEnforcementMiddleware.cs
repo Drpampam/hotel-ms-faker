@@ -11,6 +11,7 @@ namespace hotelier_core_app.API.Middleware
     {
         private readonly RequestDelegate _next;
         private readonly string _connStr;
+        private readonly ILogger<LicenseEnforcementMiddleware> _logger;
 
         private static readonly HashSet<string> _exemptPrefixes = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -24,15 +25,17 @@ namespace hotelier_core_app.API.Middleware
             "/swagger"
         };
 
-        public LicenseEnforcementMiddleware(RequestDelegate next, IConfiguration configuration)
+        public LicenseEnforcementMiddleware(RequestDelegate next, IConfiguration configuration, ILogger<LicenseEnforcementMiddleware> logger)
         {
             _next = next;
             _connStr = configuration.GetConnectionString("DbConnectionString") ?? string.Empty;
+            _logger = logger;
         }
 
         public async Task InvokeAsync(HttpContext context)
         {
             var path = context.Request.Path.Value ?? string.Empty;
+            var reqId = context.TraceIdentifier;
 
             if (_exemptPrefixes.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
             {
@@ -58,6 +61,7 @@ namespace hotelier_core_app.API.Middleware
 
                 if (tenant == null)
                 {
+                    _logger.LogWarning("[LICENSE {ReqId}] tenant {TenantId} not found in public.Tenant — passing through", reqId, tenantId);
                     await _next(context);
                     return;
                 }
@@ -68,6 +72,7 @@ namespace hotelier_core_app.API.Middleware
 
                 if (isSuspended)
                 {
+                    _logger.LogWarning("[LICENSE {ReqId}] tenant {TenantId} is suspended (until={SuspendedUntil}) → 403", reqId, tenantId, tenant.SuspendedUntil);
                     context.Response.StatusCode = StatusCodes.Status403Forbidden;
                     context.Response.ContentType = "application/json";
                     await context.Response.WriteAsync(JsonSerializer.Serialize(new
@@ -86,6 +91,7 @@ namespace hotelier_core_app.API.Middleware
 
                 if (isExpired)
                 {
+                    _logger.LogWarning("[LICENSE {ReqId}] tenant {TenantId} subscription expired at {ExpiredAt} → 402", reqId, tenantId, tenant.SubscriptionEndDate);
                     context.Response.StatusCode = StatusCodes.Status402PaymentRequired;
                     context.Response.ContentType = "application/json";
                     await context.Response.WriteAsync(JsonSerializer.Serialize(new
@@ -97,10 +103,11 @@ namespace hotelier_core_app.API.Middleware
                     return;
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // If the license check itself fails (e.g. DB unreachable), let the request
-                // through so a transient infrastructure error doesn't lock out all users.
+                // License check failed (e.g. DB unreachable) — let request through but log the error
+                // so we can distinguish "license OK" from "check skipped due to infra failure".
+                _logger.LogError(ex, "[LICENSE {ReqId}] license check failed for tenant {TenantId} — passing through: {Message}", reqId, tenantId, ex.Message);
             }
 
             await _next(context);

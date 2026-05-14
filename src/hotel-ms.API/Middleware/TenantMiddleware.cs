@@ -6,6 +6,7 @@ namespace hotelier_core_app.API.Middleware
     public class TenantMiddleware
     {
         private readonly RequestDelegate _next;
+        private readonly ILogger<TenantMiddleware> _logger;
 
         // These paths always use the public schema — users, roles, and UserRoles
         // all live in the public schema; tenant schemas are for hotel business data only.
@@ -35,16 +36,22 @@ namespace hotelier_core_app.API.Middleware
             "/swagger",
         };
 
-        public TenantMiddleware(RequestDelegate next) => _next = next;
+        public TenantMiddleware(RequestDelegate next, ILogger<TenantMiddleware> logger)
+        {
+            _next = next;
+            _logger = logger;
+        }
 
         public async Task InvokeAsync(HttpContext context, ITenantProvider tenantProvider)
         {
             var path = context.Request.Path.Value ?? string.Empty;
+            var reqId = context.TraceIdentifier;
 
             // Auth / global paths always hit the public schema.
             if (_publicSchemaPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
             {
                 tenantProvider.SetSchema("public");
+                _logger.LogDebug("[TENANT {ReqId}] {Path} → schema=public (public-path match)", reqId, path);
                 await _next(context);
                 return;
             }
@@ -55,6 +62,7 @@ namespace hotelier_core_app.API.Middleware
             if (string.IsNullOrWhiteSpace(tenantId))
             {
                 tenantProvider.SetSchema("public");
+                _logger.LogWarning("[TENANT {ReqId}] {Path} → schema=public (no X-Tenant-Id header)", reqId, path);
                 await _next(context);
                 return;
             }
@@ -62,12 +70,15 @@ namespace hotelier_core_app.API.Middleware
             // Accept only positive numeric tenant IDs.
             if (!long.TryParse(tenantId, NumberStyles.None, CultureInfo.InvariantCulture, out var normalizedTenantId) || normalizedTenantId <= 0)
             {
+                _logger.LogWarning("[TENANT {ReqId}] {Path} → 400 bad tenant id '{TenantId}'", reqId, path, tenantId);
                 context.Response.StatusCode = StatusCodes.Status400BadRequest;
                 await context.Response.WriteAsync("Invalid X-Tenant-Id header.");
                 return;
             }
 
-            tenantProvider.SetSchema($"tenant_{normalizedTenantId}");
+            var schema = $"tenant_{normalizedTenantId}";
+            tenantProvider.SetSchema(schema);
+            _logger.LogInformation("[TENANT {ReqId}] {Path} → schema={Schema}", reqId, path, schema);
             await _next(context);
         }
     }

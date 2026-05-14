@@ -30,7 +30,7 @@ function mapUser(r: {
     role: primaryRole as User['role'],
     userRoles: r.userRoles,
     status: r.status,
-    tenantId: 1,
+    tenantId: (r.tenantId as number | undefined) ?? 0,
     isActive: r.isActive ?? r.status !== 'Inactive',
     phoneNumber: r.phoneNumber,
     shift: r.shift,

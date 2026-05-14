@@ -147,6 +147,7 @@ namespace hotelier_core_app.Service.Implementation
             }
 
             _auditLogCommandRepository.Add(auditLog);
+            await _auditLogCommandRepository.SaveAsync();
             return BaseResponse.Success(ResponseMessages.UserActivated, ResponseStatusCode.UserActivated);
         }
 
@@ -261,6 +262,7 @@ namespace hotelier_core_app.Service.Implementation
             }
 
             _auditLogCommandRepository.Add(auditLog);
+            await _auditLogCommandRepository.SaveAsync();
             return BaseResponse.Success(ResponseMessages.UserCreated, ResponseStatusCode.UserCreated);
         }
 
@@ -289,6 +291,7 @@ namespace hotelier_core_app.Service.Implementation
             if (result.Succeeded)
             {
                 _auditLogCommandRepository.Add(auditLog);
+                await _auditLogCommandRepository.SaveAsync();
                 return BaseResponse.Success(ResponseMessages.UserDeactivated, ResponseStatusCode.UserDeactivated);
             }
 
@@ -705,6 +708,7 @@ namespace hotelier_core_app.Service.Implementation
 
             auditLog.PerformedAgainst = model.Email;
             _auditLogCommandRepository.Add(auditLog);
+            await _auditLogCommandRepository.SaveAsync();
 
             return BaseResponse.Success("Password updated successfully.", ResponseStatusCode.OperationSuccessful);
         }
@@ -750,6 +754,7 @@ namespace hotelier_core_app.Service.Implementation
 
             auditLog.PerformedAgainst = model.Email;
             _auditLogCommandRepository.Add(auditLog);
+            await _auditLogCommandRepository.SaveAsync();
 
             return BaseResponse.Success("User deleted successfully.", ResponseStatusCode.OperationSuccessful);
         }
@@ -776,6 +781,7 @@ namespace hotelier_core_app.Service.Implementation
 
             auditLog.PerformedAgainst = model.Email;
             _auditLogCommandRepository.Add(auditLog);
+            await _auditLogCommandRepository.SaveAsync();
 
             return BaseResponse.Success("Shift updated successfully.", ResponseStatusCode.OperationSuccessful);
         }

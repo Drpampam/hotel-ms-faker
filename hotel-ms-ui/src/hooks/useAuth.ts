@@ -27,13 +27,14 @@ export function useAuth() {
         }
         return { success: true };
       } catch (error: unknown) {
-        setLoading(false);
         const message =
           (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
           (error as Error)?.message ||
           'Invalid email or password';
         toast.error('Login failed', message);
         return { success: false, message };
+      } finally {
+        setLoading(false);
       }
     },
     [setAuth, setLoading, navigate, toast]

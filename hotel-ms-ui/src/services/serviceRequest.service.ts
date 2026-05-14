@@ -9,6 +9,14 @@ function mapState(raw: string | undefined): ServiceRequest['state'] {
   return 'Pending';
 }
 
+function mapPriority(raw: unknown): ServiceRequest['priority'] {
+  const s = typeof raw === 'string' ? raw : '';
+  if (s === 'Low') return 'Low';
+  if (s === 'High') return 'High';
+  if (s === 'Urgent') return 'Urgent';
+  return 'Normal';
+}
+
 function mapServiceRequest(raw: unknown): ServiceRequest {
   const r = raw as Record<string, unknown>;
   return {
@@ -18,7 +26,7 @@ function mapServiceRequest(raw: unknown): ServiceRequest {
     roomNumber: undefined,
     requestType: (r.serviceType as string) ?? '',
     description: r.notes as string | undefined,
-    priority: 'Normal',
+    priority: mapPriority(r.priority),
     state: mapState(r.serviceRequestState as string | undefined),
     assignedTo: undefined,
     notes: r.notes as string | undefined,

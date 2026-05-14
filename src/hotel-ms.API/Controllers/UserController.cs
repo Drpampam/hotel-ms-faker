@@ -204,10 +204,12 @@ namespace hotelier_core_app.API.Controllers
                 Response.Headers.TryAdd("Token", _tokenHelper.GenerateJSONWebToken(
                     response.Data?.FullName ?? string.Empty,
                     response.Data?.Email ?? string.Empty,
-                    response.Data?.Roles ?? Enumerable.Empty<string>().ToList()));
+                    response.Data?.Roles ?? Enumerable.Empty<string>().ToList(),
+                    _tokenHelper.GetTenantId(Request)));
                 Response.Headers.TryAdd("TokenExpiry", _jwtConfig.Value.TokenExpiryPeriod);
-                Response.Headers.TryAdd("Access-Control-Expose-Headers", "Token,TokenExpiry,RefreshToken");
+                Response.Headers.TryAdd("Access-Control-Expose-Headers", "Token,TokenExpiry,RefreshToken,X-Tenant-Id");
                 Response.Headers.TryAdd("RefreshToken", refreshToken);
+                Response.Headers.TryAdd("X-Tenant-Id", _tokenHelper.GetTenantId(Request)?.ToString() ?? "");
             }
             return Ok(response);
         }

@@ -73,153 +73,67 @@ namespace hotelier_core_app.Migrations
                 .Where(t => !t.IsDeleted)
                 .Select(t => t.Id)
                 .ToListAsync();
+            // All tables that EF Core may route to a tenant schema.
+            // LIKE INCLUDING ALL copies columns, identity sequences, PKs, unique
+            // constraints and indexes — FK constraints are never copied by LIKE,
+            // which intentionally avoids cross-schema FK issues.
+            var tenantTables = new[]
+            {
+                // InitialMigration tables
+                "Address", "AuditLog", "Discount", "LoyaltyProgram", "Module",
+                "ModuleGroup", "Payment", "Permission", "PolicyGroup",
+                "PolicyModulePermission", "Property", "Reservation", "Role",
+                "RoleClaims", "Room", "ServiceRequest", "SubscriptionPlan",
+                "Tenant", "User", "UserClaim", "UserLogin", "UserPolicyGroup",
+                "UserRole", "UserToken",
+                // Post-initial tables
+                "GuestProfile", "HousekeepingTask", "Invoice", "InvoiceLineItem",
+                "ReservationExpense",
+            };
+
             foreach (var tid in tenantIds)
             {
                 var s = $"tenant_{tid}";
                 Console.WriteLine($"[Seeder] Applying guards to {s}…");
 
-                // Column guards for tables that existed since InitialMigration
+                // ── 1. Ensure every table exists (LIKE from public) ───────────────
+                foreach (var tbl in tenantTables)
+                {
+                    try
+                    {
+                        var sql = $"CREATE TABLE IF NOT EXISTS \"{s}\".\"{tbl}\" (LIKE public.\"{tbl}\" INCLUDING ALL);";
+                        await context.Database.ExecuteSqlRawAsync(sql);
+                        Console.WriteLine($"[Seeder] {s}.{tbl}: OK");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[Seeder] {s}.{tbl}: {ex.GetBaseException().Message}");
+                    }
+                }
+
+                // ── 2. Column guards for tables that existed before certain migrations ──
+                // (handles tenants whose tables pre-date these column additions)
                 try
                 {
                     await context.Database.ExecuteSqlRawAsync($@"
-                        ALTER TABLE ""{s}"".""User"" ADD COLUMN IF NOT EXISTS ""Shift""             varchar(50);
-                        ALTER TABLE ""{s}"".""User"" ADD COLUMN IF NOT EXISTS ""Department""         varchar(100);
-                        ALTER TABLE ""{s}"".""User"" ADD COLUMN IF NOT EXISTS ""MustChangePassword"" boolean NOT NULL DEFAULT false;
-                        ALTER TABLE ""{s}"".""Reservation"" ADD COLUMN IF NOT EXISTS ""ActualCheckInDate""  timestamptz;
-                        ALTER TABLE ""{s}"".""Reservation"" ADD COLUMN IF NOT EXISTS ""ActualCheckOutDate"" timestamptz;
+                        ALTER TABLE ""{s}"".""User""           ADD COLUMN IF NOT EXISTS ""Shift""               varchar(50);
+                        ALTER TABLE ""{s}"".""User""           ADD COLUMN IF NOT EXISTS ""Department""           varchar(100);
+                        ALTER TABLE ""{s}"".""User""           ADD COLUMN IF NOT EXISTS ""MustChangePassword""   boolean NOT NULL DEFAULT false;
+                        ALTER TABLE ""{s}"".""Reservation""    ADD COLUMN IF NOT EXISTS ""ActualCheckInDate""    timestamptz;
+                        ALTER TABLE ""{s}"".""Reservation""    ADD COLUMN IF NOT EXISTS ""ActualCheckOutDate""   timestamptz;
+                        ALTER TABLE ""{s}"".""Reservation""    ADD COLUMN IF NOT EXISTS ""SpecialRequests""      varchar(500);
+                        ALTER TABLE ""{s}"".""ServiceRequest"" ADD COLUMN IF NOT EXISTS ""Notes""               varchar(500);
+                        ALTER TABLE ""{s}"".""ServiceRequest"" ADD COLUMN IF NOT EXISTS ""ServiceRequestState"" integer NOT NULL DEFAULT 0;
+                        ALTER TABLE ""{s}"".""Room""           ADD COLUMN IF NOT EXISTS ""RoomState""           integer NOT NULL DEFAULT 0;
+                        ALTER TABLE ""{s}"".""Payment""        ADD COLUMN IF NOT EXISTS ""PaymentState""        integer NOT NULL DEFAULT 0;
+                        ALTER TABLE ""{s}"".""GuestProfile""   ADD COLUMN IF NOT EXISTS ""FullName""            varchar(200);
+                        ALTER TABLE ""{s}"".""GuestProfile""   ADD COLUMN IF NOT EXISTS ""Email""              varchar(200);
+                        ALTER TABLE ""{s}"".""GuestProfile""   ADD COLUMN IF NOT EXISTS ""PhoneNumber""         varchar(50);
                     ");
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[Seeder] {s}: column guards failed – {ex.GetBaseException().Message}");
-                }
-
-                // GuestProfile (added after InitialMigration — must exist in every tenant schema)
-                try
-                {
-                    await context.Database.ExecuteSqlRawAsync($@"
-                        CREATE TABLE IF NOT EXISTS ""{s}"".""GuestProfile"" (
-                            ""Id""                bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                            ""UserId""            bigint,
-                            ""FullName""          varchar(200),
-                            ""Email""             varchar(200),
-                            ""PhoneNumber""       varchar(50),
-                            ""PassportNumber""    varchar(100),
-                            ""Nationality""       varchar(100),
-                            ""DateOfBirth""       timestamptz,
-                            ""PreferredRoomType"" varchar(100),
-                            ""SpecialRequests""   varchar(500),
-                            ""LoyaltyPoints""     integer      NOT NULL DEFAULT 0,
-                            ""LoyaltyTier""       varchar(50),
-                            ""TenantId""          bigint,
-                            ""CreatedBy""         varchar(200),
-                            ""ModifiedBy""        varchar(200),
-                            ""CreationDate""      timestamptz  NOT NULL DEFAULT now(),
-                            ""LastModifiedDate""  timestamptz,
-                            ""IsDeleted""         boolean      NOT NULL DEFAULT false
-                        );
-                        ALTER TABLE ""{s}"".""GuestProfile"" ADD COLUMN IF NOT EXISTS ""FullName""    varchar(200);
-                        ALTER TABLE ""{s}"".""GuestProfile"" ADD COLUMN IF NOT EXISTS ""Email""       varchar(200);
-                        ALTER TABLE ""{s}"".""GuestProfile"" ADD COLUMN IF NOT EXISTS ""PhoneNumber"" varchar(50);
-                    ");
-                    Console.WriteLine($"[Seeder] {s}: GuestProfile OK");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[Seeder] {s}: GuestProfile FAILED – {ex.GetBaseException().Message}");
-                }
-
-                // HousekeepingTask
-                try
-                {
-                    await context.Database.ExecuteSqlRawAsync($@"
-                        CREATE TABLE IF NOT EXISTS ""{s}"".""HousekeepingTask"" (
-                            ""Id""               bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                            ""RoomId""           bigint       NOT NULL,
-                            ""AssignedToUserId"" bigint,
-                            ""TaskType""         varchar(100),
-                            ""Priority""         varchar(50),
-                            ""Notes""            varchar(500),
-                            ""State""            integer      NOT NULL DEFAULT 0,
-                            ""ScheduledAt""      timestamptz,
-                            ""CompletedAt""      timestamptz,
-                            ""TenantId""         bigint,
-                            ""CreatedBy""        varchar(200),
-                            ""ModifiedBy""       varchar(200),
-                            ""CreationDate""     timestamptz  NOT NULL DEFAULT now(),
-                            ""LastModifiedDate"" timestamptz,
-                            ""IsDeleted""        boolean      NOT NULL DEFAULT false
-                        );
-                    ");
-                    Console.WriteLine($"[Seeder] {s}: HousekeepingTask OK");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[Seeder] {s}: HousekeepingTask FAILED – {ex.GetBaseException().Message}");
-                }
-
-                // Invoice + InvoiceLineItem (child table depends on Invoice)
-                try
-                {
-                    await context.Database.ExecuteSqlRawAsync($@"
-                        CREATE TABLE IF NOT EXISTS ""{s}"".""Invoice"" (
-                            ""Id""               bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                            ""InvoiceNumber""    varchar(50),
-                            ""ReservationId""    bigint       NOT NULL,
-                            ""GuestId""          bigint       NOT NULL,
-                            ""IssueDate""        timestamptz  NOT NULL DEFAULT now(),
-                            ""DueDate""          timestamptz  NOT NULL DEFAULT now(),
-                            ""SubTotal""         numeric      NOT NULL DEFAULT 0,
-                            ""TaxAmount""        numeric      NOT NULL DEFAULT 0,
-                            ""DiscountAmount""   numeric      NOT NULL DEFAULT 0,
-                            ""TotalAmount""      numeric      NOT NULL DEFAULT 0,
-                            ""Status""           integer      NOT NULL DEFAULT 0,
-                            ""TenantId""         bigint,
-                            ""CreatedBy""        varchar(200),
-                            ""ModifiedBy""       varchar(200),
-                            ""CreationDate""     timestamptz  NOT NULL DEFAULT now(),
-                            ""LastModifiedDate"" timestamptz,
-                            ""IsDeleted""        boolean      NOT NULL DEFAULT false
-                        );
-                        CREATE TABLE IF NOT EXISTS ""{s}"".""InvoiceLineItem"" (
-                            ""Id""          bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                            ""InvoiceId""   bigint       NOT NULL,
-                            ""Description"" varchar(255),
-                            ""Category""    varchar(50),
-                            ""Quantity""    integer      NOT NULL DEFAULT 1,
-                            ""UnitPrice""   numeric      NOT NULL DEFAULT 0,
-                            ""Amount""      numeric      NOT NULL DEFAULT 0
-                        );
-                    ");
-                    Console.WriteLine($"[Seeder] {s}: Invoice + InvoiceLineItem OK");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[Seeder] {s}: Invoice FAILED – {ex.GetBaseException().Message}");
-                }
-
-                // ReservationExpense
-                try
-                {
-                    await context.Database.ExecuteSqlRawAsync($@"
-                        CREATE TABLE IF NOT EXISTS ""{s}"".""ReservationExpense"" (
-                            ""Id""            bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                            ""ReservationId"" bigint       NOT NULL,
-                            ""Description""   varchar(255) NOT NULL DEFAULT '',
-                            ""Category""      varchar(50),
-                            ""Quantity""      integer      NOT NULL DEFAULT 1,
-                            ""UnitPrice""     numeric      NOT NULL DEFAULT 0,
-                            ""Amount""        numeric      NOT NULL DEFAULT 0,
-                            ""CreatedBy""     varchar(200),
-                            ""CreationDate""  timestamptz  NOT NULL DEFAULT now(),
-                            ""IsDeleted""     boolean      NOT NULL DEFAULT false
-                        );
-                    ");
-                    Console.WriteLine($"[Seeder] {s}: ReservationExpense OK");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[Seeder] {s}: ReservationExpense FAILED – {ex.GetBaseException().Message}");
                 }
 
                 Console.WriteLine($"[Seeder] {s}: done.");
